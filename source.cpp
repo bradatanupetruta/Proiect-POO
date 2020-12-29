@@ -1,8 +1,4 @@
-#include <cstddef>
-#include <cstdio>
 #include<iostream>
-#include <ostream>
-#include<string.h>
 #include <string>
 #include <regex>
 #include<tgmath.h>
@@ -19,7 +15,7 @@ int main()
     Content a3("text");
     Content a4(4);
     a1 = a2;
-    //cin >> a1;
+    cin >> a1;
     cout << a1;
     int b = a2[1];
     cout << b << endl;
@@ -74,6 +70,57 @@ int main()
     cout << c3.getColumnSize() << endl;
     c3 = c3 + 1;
     cout << c3.getColumnSize() << endl;
+    cout << endl << "Test table class\n";
+    Table t1;
+    Table t2("test", 2,2);
+    Table t3("test", 2, 2);
+    cin >> t1;
+    cout << t1;
+    Row b6(t1[0]);
+    cout << b6;
+    t2 = t3;
+    cout << !t3 << endl;
+    if (t3 == t2)
+    {
+        cout << "t3 == t2" << endl;
+    }
+   /* if (t3 > t1)
+    {
+        cout << "t3 > t1" << endl;
+    }*/
+    cout << (int)t1 << endl;
+   t3++;
+   //++t3;
+   cout << "Test Class Database\n";
+   Database d1;
+   Database d2(3);
+   Table* test_tables;
+   test_tables = new Table[3];
+   test_tables[0] = t1;
+   test_tables[1] = t2;
+   test_tables[2] = t3;
+   Database d3(3, test_tables);
+   cout << d3;
+   cout << endl;
+   cin >> d2;
+   cout << endl;
+   cout << d2;
+   cout << !d3;
+   cout << endl;
+   Database d4 = d3;
+   if (d3 == d4)
+   {
+       cout << "d3 == d4\n";
+   }
+   if (d3 > d1)
+   {
+       cout << "d3 > d1\n";
+   }
+   cout << (int)d3 << endl;
+   d3++;
+   //d4 = d3 + t3;
+   ++d3;
+   Table t4(d3[1]);
     cout << endl;
     cout << "---The actual program---" << endl;
     string comanda;
@@ -83,18 +130,26 @@ int main()
     regex insert_into("^(INSERT INTO){1}( )+([A-z])+( )+(VALUES){1}( )*(\\(){1}([A-z]*[0-9]*(.)*[0-9]*){1}((,)( )*[A-z]*[0-9]*(.)*[0-9]*)*(\\))$");
     regex delete_from("^(DELETE FROM){1}( )*([A-z,0-9]+[^WHERE]){1}( )*(WHERE){1}( )*([A-z,0-9]+){1}( )*(=){1}( )*([A-z,0-9]+){1}$");
     regex update("^(UPDATE ){1}([A-z0-9]+[^ SET]){1}( SET ){1}([A-z,0-9]+){1}( )*(=){1}( )*([A-z,0-9]+[^ WHERE]){1}( WHERE ){1}([A-z,0-9]+)( )*(=){1}( )*([A-z,0-9]+){1}$");
-    cout << "To exit this cheap SQLite copy type \"exit\"\n";
+    cout << "To exit this cheap database manager type \"exit\"\n";
+    cout << "Accepted commands (examples):\nCREATE TABLE test ((a, TEXT, 3, a), (b, INTEGER, 3, 0), (c, FLOAT, 3, 9.2), (...))\nINSERT INTO test VALUES (xz, 12, 1.3, ...)\nDELETE FROM test WHERE a = xz\nDROP TABLE test\n";
     cout << ">> ";
+    cin.get();
     getline(cin,comanda,'\n');
     while(comanda!="exit")
     {
+        int valid = 0;
     if (regex_match (comanda,create_table))
     {
+        valid = 1;
         if(comanda.find(" IF NOT EXISTS") == -1)
         {
             size_t pos1 = comanda.find(" (");
             size_t pos2;
             string table_name = comanda.substr(13,pos1-(comanda.find("LE ")+3));
+            if (database.findIndexOfTable(table_name) != -1)
+            {
+                cout << "A table with the name " << table_name << " already exists";
+            }
             //cout << table_name << endl;
             pos1 += 3;
             database.createTable(table_name);
@@ -153,17 +208,20 @@ int main()
 
     if (regex_match (comanda,drop_table))
     {
+        valid = 1;
         string table_name = comanda.substr(11,comanda.length()-11);
         database.dropTable(table_name);
     }
 
     if (regex_match (comanda,display_table))
     {
-        cout << "aici facem display table";
+        valid = 1;
+        cout << "DISPLAY TABLE is a work in progress";
     }
 
     if (regex_match (comanda,insert_into))
     {
+        valid = 1;
         size_t pos1 = comanda.find(" VALUES");
         size_t pos2;
         string table_name = comanda.substr(12,pos1-12);
@@ -247,6 +305,7 @@ int main()
     }
     if(regex_match(comanda,delete_from))
     {
+        valid = 1;
         comanda.erase(remove(comanda.begin(), comanda.end(), ' '), comanda.end());
         size_t pos1 = comanda.find("WHERE");
         size_t pos2;
@@ -271,10 +330,13 @@ int main()
             }
         }
     }
+    if (valid == 0)
+    {
+        cout << "Command not recognized, try again or type \"exit\"\n";
+    }
     cout << ">> ";
     getline(cin,comanda,'\n');
     }
-    database.getTables();
 }
 
 //CREATE TABLE test ((a, TEXT, 3, a), (b, INTEGER, 3, 0), (c, FLOAT, 3, 9.2))

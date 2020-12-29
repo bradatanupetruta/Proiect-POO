@@ -1,8 +1,4 @@
-#include <cstddef>
-#include <cstdio>
 #include<iostream>
-#include <ostream>
-#include<string.h>
 #include <string>
 #include <regex>
 #include<tgmath.h>
@@ -11,8 +7,6 @@ using namespace std;
 class Content
 {
 public:
-    friend class Column;
-    friend class Row;
     Content()
     {
         int_content = 0;
@@ -24,16 +18,22 @@ public:
     {
         int_content = content;
         content_type = 1;
+        float_content = 0;
+        text_content = "";
     }
     Content(float content)
     {
         float_content = content;
         content_type = 2;
+        text_content = "";
+        int_content = 0;
     }
     Content(string content)
     {
         text_content = content;
         content_type = 3;
+        int_content = 0;
+        float_content = 0;
     }
 
     Content(Content& c)
@@ -42,14 +42,20 @@ public:
         if (c.content_type == 1)
         {
             this->int_content = c.int_content;
+            float_content = 0;
+            text_content = "";
         }
         if (c.content_type == 2)
         {
             this->float_content = c.float_content;
+            text_content = "";
+            int_content = 0;
         }
         if (c.content_type == 3)
         {
             this->text_content = c.text_content;
+            int_content = 0;
+            float_content = 0;
         }
     }
 
@@ -252,7 +258,7 @@ public:
         return this->content_type == c.content_type;
     }
 
-    friend ostream& operator<<(ostream&, Content);
+    friend ostream& operator<<(ostream&, Content&);
     friend istream& operator>>(istream&, Content&);
 
 private:
@@ -263,7 +269,7 @@ private:
     int content_type;
 };
 
-ostream& operator<<(ostream& o, Content c)
+ostream& operator<<(ostream& o, Content& c)
 {
     if (c.content_type == 1)
     {
@@ -368,13 +374,14 @@ public:
 
     Row& operator=(const Row& r)
     {
+        this->nr_of_values = r.nr_of_values;
+        if (this->values != nullptr)
+        {
+            delete[] this->values;
+        }
         if (r.values != nullptr && r.nr_of_values != 0)
         {
-            this->nr_of_values = r.nr_of_values;
-            if (this->values != nullptr)
-            {
-                delete[] this->values;
-            }
+            
             this->values = new Content[r.nr_of_values];
             for (int i = 0; i < r.nr_of_values; i++)
             {
@@ -383,10 +390,131 @@ public:
         }
         else
         {
-            this->nr_of_values = 0;
             this->values = nullptr;
         }
         return *this;
+    }
+
+    bool operator!()
+    {
+        return nr_of_values == 0;
+    }
+
+    Row operator++()
+    {
+        if (values != nullptr && nr_of_values != 0)
+        {
+            Content* values_copy;
+            values_copy = new Content[nr_of_values];
+            for (int i = 0; i < nr_of_values; i++)
+            {
+                values_copy[i] = values[i];
+            }
+            nr_of_values++;
+            delete[] values;
+            values = new Content[nr_of_values];
+            for (int i = 0; i < nr_of_values - 1; i++)
+            {
+                values[i] = values_copy[i];
+            }
+            delete[] values_copy;
+        }
+        else
+        {
+            nr_of_values = 1;
+            values = new Content[1];
+        }
+        return *this;
+    }
+
+    Row operator++(int i)
+    {
+        Row content_copy = *this;
+        if (values != nullptr && nr_of_values != 0)
+        {
+            Content* values_copy;
+            values_copy = new Content[nr_of_values];
+            for (int i = 0; i < nr_of_values; i++)
+            {
+                values_copy[i] = values[i];
+            }
+            nr_of_values++;
+            delete[] values;
+            values = new Content[nr_of_values];
+            for (int i = 0; i < nr_of_values - 1; i++)
+            {
+                values[i] = values_copy[i];
+            }
+            delete[] values_copy;
+        }
+        else
+        {
+            nr_of_values = 1;
+            values = new Content[1];
+        }
+        return content_copy;
+    }
+
+    Row& operator+(Content c)
+    {
+        Row content_copy = *this;
+        if (content_copy.values != nullptr && content_copy.nr_of_values != 0)
+        {
+            Content* values_copy;
+            values_copy = new Content[content_copy.nr_of_values];
+            for (int i = 0; i < content_copy.nr_of_values; i++)
+            {
+                values_copy[i] = content_copy.values[i];
+            }
+            content_copy.nr_of_values += 1;
+            delete[] content_copy.values;
+            content_copy.values = new Content[content_copy.nr_of_values];
+            for (int i = 0; i < content_copy.nr_of_values - 1; i++)
+            {
+                content_copy.values[i] = values_copy[i];
+            }
+            content_copy[nr_of_values - 1] = c;
+            delete[] values_copy;
+        }
+        else
+        {
+            content_copy.nr_of_values = 1;
+            content_copy.values = new Content[1];
+            content_copy.values[0] = c;
+        }
+        return content_copy;
+    }
+
+    Content& operator[](int index)
+    {
+        return this->values[index];
+    }
+
+    explicit operator int()
+    {
+        return this->nr_of_values;
+    }
+
+    bool operator>(Row c)
+    {
+        return this->nr_of_values > c.nr_of_values;
+
+    }
+
+    bool operator==(Row c)
+    {
+        if (this->nr_of_values == c.nr_of_values)
+        {
+            for (int i = 0; i < this->nr_of_values; i++)
+            {
+                if (!(this->values[i] == c.values[i]))
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+        return false;
     }
 
     void setNewRow(Row r)
@@ -413,7 +541,6 @@ public:
 
     void addValue(Content new_value, int type)
     {
-        //cout << "a intrat in addValue\n";
         if (values != nullptr && nr_of_values != 0)
         {
             Content* values_copy;
@@ -506,8 +633,6 @@ istream& operator>>(istream& i, Row& r)
 class Column
 {
 public:
-    friend class Table;
-    friend class Database;
     Column()
     {
         name = "NaN";
@@ -835,7 +960,6 @@ istream& operator>>(istream& i, Column& c)
 class Table
 {
 public:
-    friend class Database;
     Table()
     {
         name = "NaN";
@@ -844,6 +968,189 @@ public:
         nr_of_columns = 0;
         nr_of_rows = 0;
     }
+
+    Table(string name, int nr_of_columns, int nr_of_rows)
+    {
+        this->name = name;
+        this->nr_of_columns = nr_of_columns;
+        this->nr_of_rows = nr_of_rows;
+        this->columns = nullptr;
+        this->rows = nullptr;
+    }
+
+    Table(string name, int nr_of_columns, int nr_of_rows, Column* columns, Row* rows)
+    {
+        this->name = name;
+        this->nr_of_columns = nr_of_columns;
+        this->nr_of_rows = nr_of_rows;
+        this->columns = columns;
+        this->rows = rows;
+    }
+
+    ~Table()
+    {
+        if (columns != nullptr)
+            delete[] columns;
+        if (rows != nullptr)
+            delete[] rows;
+    }
+
+    Table& operator=(const Table& t)
+    {
+        this->nr_of_rows = t.nr_of_rows;
+        this->nr_of_columns = t.nr_of_columns;
+        this->name = t.name;
+        if (t.columns != nullptr && t.nr_of_columns != 0)
+        {
+            if (this->columns != nullptr)
+                delete[] this->columns;
+            this->columns = new Column[this->nr_of_columns];
+            for (int i = 0; i < this->nr_of_columns; i++)
+                this->columns[i] = t.columns[i];
+        }
+        if (t.rows != nullptr && t.nr_of_rows != 0)
+        {
+            if (this->rows != nullptr)
+                delete[] this->rows;
+            this->rows = new Row[this->nr_of_rows];
+            for (int i = 0; i < this->nr_of_rows; i++)
+                this->rows[i] = t.rows[i];
+        }
+        return *this;
+    }
+
+    bool operator!()
+    {
+        return nr_of_rows == 0;
+    }
+
+    Table operator++()
+    {
+        if (rows != nullptr && nr_of_rows != 0)
+        {
+            Row* rows_copy;
+            rows_copy = new Row[nr_of_rows];
+            for (int i = 0; i < nr_of_rows; i++)
+            {
+                rows_copy[i] = rows[i];
+            }
+            nr_of_rows++;
+            delete[] rows;
+            rows = new Row[nr_of_rows];
+            for (int i = 0; i < nr_of_rows - 1; i++)
+            {
+                rows[i] = rows_copy[i];
+            }
+            delete[] rows_copy;
+        }
+        else
+        {
+            nr_of_rows = 1;
+            rows = new Row[1];
+        }
+        return *this;
+    }
+
+    Table operator++(int i)
+    {
+        Table table_copy = *this;
+        if (rows != nullptr && nr_of_rows != 0)
+        {
+            Row* rows_copy;
+            rows_copy = new Row[nr_of_rows];
+            for (int i = 0; i < nr_of_rows; i++)
+            {
+                rows_copy[i] = rows[i];
+            }
+            nr_of_rows++;
+            delete[] rows;
+            rows = new Row[nr_of_rows];
+            for (int i = 0; i < nr_of_rows - 1; i++)
+            {
+                rows[i] = rows_copy[i];
+            }
+            delete[] rows_copy;
+        }
+        else
+        {
+            nr_of_rows = 1;
+            rows = new Row[1];
+        }
+        return table_copy;
+    }
+
+    Table& operator+(Row r)
+    {
+        Table content_copy = *this;
+        if (content_copy.rows != nullptr && content_copy.nr_of_rows != 0)
+        {
+            Row* rows_copy;
+            rows_copy = new Row[content_copy.nr_of_rows];
+            for (int i = 0; i < content_copy.nr_of_rows; i++)
+            {
+                rows_copy[i] = content_copy.rows[i];
+            }
+            content_copy.nr_of_rows += 1;
+            delete[] content_copy.rows;
+            content_copy.rows = new Row[content_copy.nr_of_rows];
+            for (int i = 0; i < content_copy.nr_of_rows - 1; i++)
+            {
+                content_copy.rows[i] = rows_copy[i];
+            }
+            content_copy[nr_of_rows - 1] = r;
+            delete[] rows_copy;
+        }
+        else
+        {
+            content_copy.nr_of_rows = 1;
+            content_copy.rows = new Row[1];
+            content_copy.rows[0] = r;
+        }
+        return content_copy;
+    }
+
+    Row& operator[](int index)
+    {
+        return rows[index];
+    }
+
+    explicit operator int()
+    {
+        return nr_of_rows;
+    }
+
+    bool operator>(Table t)
+    {
+        return nr_of_rows>t.nr_of_rows;
+    }
+
+    bool operator==(Table t)
+    {
+        if (nr_of_rows == t.nr_of_rows)
+        {
+            cout << "a";
+            if (rows != nullptr)
+            {
+                cout << "b";
+                for (int i = 0; i < nr_of_rows; i++)
+                {
+                    if (!(rows[i] == t.rows[i]))
+                    {
+                        return false;
+                    }
+                }
+            }
+            else
+            {
+                cout << "c";
+                return true;
+            }
+        }
+        return true;
+    }
+
+    friend ostream& operator<<(ostream&, Table&);
+    friend istream& operator>>(istream&, Table&);
 
     void addColumn(string column_name, string column_type, string column_size, string default_type)
     {
@@ -962,7 +1269,7 @@ public:
 
             for (int i = nr_of_rows - 1; i >= 0; i--)
             {
-                cout << nr_of_rows << endl;
+                //cout << nr_of_rows << endl;
 
                 if (column_type == 1)
                 {
@@ -1046,46 +1353,13 @@ public:
         }
     }
 
-    Table& operator=(const Table& t)
-    {
-        //string name;
-        //Column* columns;
-        //Row* rows;
-        //int nr_of_columns;
-        //int nr_of_rows;
-        this->nr_of_rows = t.nr_of_rows;
-        this->nr_of_columns = t.nr_of_columns;
-        this->name = t.name;
-        if (t.columns != nullptr && t.nr_of_columns != 0)
-        {
-            if (this->columns != nullptr)
-                delete[] this->columns;
-            this->columns = new Column[this->nr_of_columns];
-            for (int i = 0; i < this->nr_of_columns; i++)
-                this->columns[i] = t.columns[i];
-        }
-        if (t.rows != nullptr && t.nr_of_rows != 0)
-        {
-            if (this->rows != nullptr)
-                delete[] this->rows;
-            this->rows = new Row[this->nr_of_rows];
-            for (int i = 0; i < this->nr_of_rows; i++)
-                this->rows[i] = t.rows[i];
-        }
-        return *this;
-    }
+    
 
     string getTableName()
     {
         return name;
     }
-    ~Table()
-    {
-        if (columns != nullptr)
-            delete[] columns;
-        if (rows != nullptr)
-            delete[] rows;
-    }
+    
 
     void setName(string name)
     {
@@ -1101,6 +1375,91 @@ private:
 
 };
 
+ostream& operator<<(ostream& o, Table& t)
+{
+    o << "Table name: " << t.name << endl;
+    o << "Columns: " << endl;
+    if (t.columns != nullptr)
+    {
+        for (int i = 0; i < t.nr_of_columns; i++)
+        {
+            o << t.columns[i].getColumnName() << " ";
+        }
+    }
+    else
+    {
+        o << "There are no columns in the table";
+    }
+    o << endl;
+    if (t.rows != nullptr)
+    {
+        o << "Rows: " << endl;
+        for (int i = 0; i < t.nr_of_rows; i++)
+        {
+            o << t.rows[i] << endl;
+        }
+    }
+    else
+    {
+        o << "There are no rows in the table";
+    }
+    return o;
+}
+istream& operator>>(istream& i, Table& t)
+{
+    cout << "Table name? ";
+    i >> t.name;
+    cout << "Nr of columns? ";
+    i >> t.nr_of_columns;
+    if (t.nr_of_columns != 0)
+    {
+        if (t.columns != nullptr)
+        {
+            delete[] t.columns;
+        }
+        t.columns = new Column[t.nr_of_columns];
+        for (int j = 0; j < t.nr_of_columns; j++)
+        {
+            cout << "Column " << j << ": ";
+            i >> t.columns[j];
+        }
+    }
+    cout << "Nr of rows? ";
+    i >> t.nr_of_rows;
+    if (t.nr_of_rows != 0)
+    {
+        cout << "Set the number of values for each row to the number of columns added to this table!\n";
+        if (t.rows != nullptr)
+        {
+            delete[] t.rows;
+        }
+        t.rows = new Row[t.nr_of_rows];
+        for (int j = 0; j < t.nr_of_rows; j++)
+        {
+            cout << "Row " << j << ": ";
+            i >> t.rows[j];
+        }
+        for (int j = 0; j < t.nr_of_rows; j++)
+        {
+            if (t.rows[j].getNrOfValues() != t.nr_of_columns)
+            {
+                cout << "Error: Number of values for row " << j << "doesn't match the number of columns in the table\nOnly the table name and columns will be saved\n";
+                delete[] t.rows;
+                t.nr_of_rows = 0;
+                break;
+            }
+            for (int x = 0; x < t.nr_of_columns; x++)
+            {
+                if (t.rows[j][x].getContentType() != t.getColumnTypeByIndex(x))
+                {
+                    cout << "Error: Type of value " << x << " in row " << j << " doesn't match the type of the corresponding column in the table\nOnly the table name and columns will be saved\n";
+                }
+            }
+        }
+    }
+    return i;
+}
+
 class Database {
 
 public:
@@ -1109,10 +1468,158 @@ public:
         tables = nullptr;
         nr_of_tables = 0;
     }
+
+
+    Database(int nr_of_tables)
+    {
+        this->nr_of_tables = nr_of_tables;
+        this->tables = nullptr;
+    }
+
+    Database(int nr_of_tables,Table* tables)
+    {
+        this->nr_of_tables = nr_of_tables;
+        this->tables = tables;
+    }
     ~Database()
     {
         if (tables != nullptr)
             delete[] tables;
+    }
+    Database(Database& d)
+    {
+        nr_of_tables = d.nr_of_tables;
+        if (nr_of_tables != 0)
+        {
+            tables = new Table[nr_of_tables];
+            for (int i = 0; i < nr_of_tables; i++)
+            {
+                tables[i] = d.tables[i];
+            }
+        }
+        else
+        {
+            tables = nullptr;
+        }
+    }
+
+    Database& operator=(Database& c)
+    {
+        this->nr_of_tables = c.nr_of_tables;
+        if (this->tables != nullptr)
+            delete[] this->tables;
+        if (c.nr_of_tables == 0 || c.tables ==  nullptr)
+        {
+            this->tables = nullptr;
+        }
+        else
+        {
+            this->tables = new Table[this->nr_of_tables];
+            for (int i = 0; i < this->nr_of_tables; i++)
+            {
+                this->tables[i] = c.tables[i];
+            }
+        }
+        return *this;
+    }
+
+    bool operator!()
+    {
+        return nr_of_tables == 0;
+    }
+
+    Database& operator++()
+    {
+            Table* tables_copy;
+            tables_copy = new Table[nr_of_tables];
+            for (int i = 0; i < nr_of_tables; i++)
+            {
+                tables_copy[i] = tables[i];
+            }
+            nr_of_tables += 1;
+            delete[] tables;
+            tables = new Table[nr_of_tables];
+            for (int i = 0; i < nr_of_tables - 1; i++)
+            {
+                tables[i] = tables_copy[i];
+            }
+            delete[] tables_copy;
+        return *this;
+    }
+
+    Database operator++(int i)
+    {
+        Database database_copy = *this;
+        Table* tables_copy;
+        tables_copy = new Table[nr_of_tables];
+        for (int i = 0; i < nr_of_tables; i++)
+        {
+            tables_copy[i] = tables[i];
+        }
+        nr_of_tables += 1;
+        delete[] tables;
+        tables = new Table[nr_of_tables];
+        for (int i = 0; i < nr_of_tables - 1; i++)
+        {
+            tables[i] = tables_copy[i];
+        }
+        delete[] tables_copy;
+        return database_copy;
+    }
+
+   Database& operator+(Table t)
+    {
+        Database database_copy = *this;
+        if (database_copy.nr_of_tables != 0 && database_copy.tables != nullptr)
+        {
+            Table* tables_copy;
+            tables_copy = new Table[database_copy.nr_of_tables];
+            for (int i = 0; i < database_copy.nr_of_tables; i++)
+            {
+                tables_copy[i] = database_copy.tables[i];
+            }
+            database_copy.nr_of_tables++;
+            if (database_copy.tables != nullptr)
+            {
+                delete[] database_copy.tables;
+            }
+            database_copy.tables = new Table[database_copy.nr_of_tables];
+            for (int i = 0; i < database_copy.nr_of_tables-1; i++)
+            {
+                database_copy.tables[i] = tables_copy[i];
+            }
+            database_copy.tables[nr_of_tables - 1] = t;
+        }
+        else
+        {
+            database_copy.nr_of_tables = 1;
+            database_copy.tables = new Table[database_copy.nr_of_tables];
+            database_copy.tables[0] = t;
+        }
+        return database_copy;
+    }
+
+    Table& operator[](int index)
+    {
+        if (nr_of_tables > index)
+        {
+            return tables[index];
+        }
+    }
+
+    explicit operator int()
+    {
+        return nr_of_tables;
+    }
+
+    bool operator>(Database d)
+    {
+        return this->nr_of_tables > d.nr_of_tables;
+    }
+
+    bool operator==(Database d)
+    {
+        return this->nr_of_tables == d.nr_of_tables;
     }
 
     void createTable(string new_table_name)
@@ -1205,7 +1712,7 @@ public:
                 tables_copy[i] = tables[i];
             }
             delete[] tables;
-            cout << "nr tabele: " << nr_of_tables << endl;
+            //cout << "nr tabele: " << nr_of_tables << endl;
             nr_of_tables--;
             tables = new Table[nr_of_tables];
             int i = 0;
@@ -1228,8 +1735,42 @@ public:
         }
     }
 
+    friend ostream& operator<<(ostream&, Database&);
+    friend istream& operator>>(istream&, Database&);
 
 private:
     Table* tables;
     int nr_of_tables;
 };
+
+ostream& operator<<(ostream& o, Database& d)
+{
+    o << "Nr of tables in database: " << d.nr_of_tables;
+    if (d.nr_of_tables > 0)
+    {
+        for (int i = 0; i < d.nr_of_tables; i++)
+        {
+            o << d.tables[i] << endl;
+        }
+    }
+    return o;
+}
+
+istream& operator>>(istream& i, Database& d)
+{
+    cout << "Nr of tables in database? ";
+    i >> d.nr_of_tables;
+    if (d.nr_of_tables > 0)
+    {
+        if (d.tables != nullptr)
+        {
+            delete[] d.tables;
+        }
+        d.tables = new Table[d.nr_of_tables];
+        for (int j = 0; j < d.nr_of_tables; j++)
+        {
+            i >> d.tables[j];
+        }
+    }
+    return i;
+}
