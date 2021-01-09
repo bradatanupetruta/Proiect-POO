@@ -1,4 +1,5 @@
 #include<iostream>
+#include <fstream>
 #include <string>
 #include <regex>
 #include<tgmath.h>
@@ -1151,6 +1152,7 @@ public:
 
     friend ostream& operator<<(ostream&, Table&);
     friend istream& operator>>(istream&, Table&);
+    friend ofstream& operator<<(ofstream&, Table& t);
 
     void addColumn(string column_name, string column_type, string column_size, string default_type)
     {
@@ -1458,6 +1460,34 @@ istream& operator>>(istream& i, Table& t)
         }
     }
     return i;
+}
+
+ofstream& operator<<(ofstream& o, Table& t)
+{
+    o << t.name;
+    if (t.columns != nullptr)
+    {
+        for (int i = 0; i < t.nr_of_columns; i++)
+        {   
+            o << endl;
+            o << t.columns[i].getColumnName() <<endl;
+            o << t.columns[i].getColumnType() << endl;
+            o << t.columns[i].getColumnSize() << endl;
+            if (t.columns[i].getColumnType() == 1)
+            {
+                o << t.columns[i].getDefaultIntContent();
+            }
+            if (t.columns[i].getColumnType() == 2)
+            {
+                o << t.columns[i].getDefaultFloatContent();
+            }
+            if (t.columns[i].getColumnType() == 3)
+            {
+                o << t.columns[i].getDefaultTextContent();
+            }
+        }
+    }
+    return o;
 }
 
 class Database {
@@ -1774,3 +1804,285 @@ istream& operator>>(istream& i, Database& d)
     }
     return i;
 }
+class Input
+{
+private:
+    int nr_of_files;
+    char** filenames;
+public:
+    Input()
+    {
+        nr_of_files = 0;
+        filenames = nullptr;
+    }
+    Input(int nr_of_files, char** filenames)
+    {
+        if (nr_of_files > 0 && filenames != nullptr)
+        {
+            this->nr_of_files = nr_of_files;
+            this->filenames = new char* [nr_of_files];
+            for (int i = 0; i < nr_of_files; i++)
+            {
+                this->filenames[i] = new char[strlen(filenames[i]) + 1];
+                strcpy_s(this->filenames[i], strlen(filenames[i])+1, filenames[i]);
+            }
+        }
+        else 
+        {
+            nr_of_files = 0;
+            filenames = nullptr;
+        }
+    }
+    ~Input()
+    {
+        if (nr_of_files > 0)
+        {
+            for (int i = 0; i < nr_of_files; i++)
+            {
+                delete[] filenames[i];
+            }
+        }
+        if (filenames != nullptr)
+        {
+            delete[] filenames;
+        }
+    }
+    void runCommands(Database& database)
+    {
+        ifstream file;
+        for (int i = 1; i < nr_of_files; i++)
+        {
+            file.open(filenames[i]);
+            if (file.is_open())
+            {
+                string comanda;
+                int valid = 0;
+                regex create_table("^(CREATE( )*TABLE( )*){1}([A-z]+[0-9]*){1}(( )*IF NOT EXISTS)*( )*((\\()((\\(){1}([A-z]+(,){1}( )*(TEXT)*(INTEGER)*(FLOAT)*(,){1}( )*[0-9]+(,){1}( )*([A-z]*[0-9]*(\\.)*[0-9]*)*)(\\)(,)*( )*){1})+(\\))){1}$");
+                regex drop_table("^(DROP TABLE){1}( )*([A-z]+[0-9]){1}$");
+                regex display_table("^(DISPLAY TABLE ){1}([A-z])+$");
+                regex insert_into("^(INSERT INTO){1}( )*([A-z])+( )*(VALUES){1}( )*(\\(){1}([A-z]*[0-9]*(\\.)*[0-9]*){1}((,)( )*[A-z]*[0-9]*(.)*[0-9]*)*(\\))$");
+                regex delete_from("^(DELETE FROM){1}( )*([A-z,0-9]+[^WHERE]){1}( )*(WHERE){1}( )*([A-z,0-9]+){1}( )*(=){1}( )*([A-z,0-9]+(\.)*[0-9]*){1}$");
+                regex update("^(UPDATE ){1}([A-z0-9]+[^ SET]){1}( SET ){1}([A-z,0-9]+){1}( )*(=){1}( )*([A-z,0-9]+[^ WHERE]){1}( WHERE ){1}([A-z,0-9]+)( )*(=){1}( )*([A-z,0-9]+){1}$");
+                while (getline(file, comanda))
+                {
+                    if (regex_match(comanda, create_table))
+                    {
+                        valid = 1;
+                        regex ifnotexists("^(.)+(IF){1}( )*(NOT){1}( )*(EXISTS){1}(.)+$");
+                        if (!(regex_match(comanda, ifnotexists)))
+                        {
+                            comanda.erase(remove(comanda.begin(), comanda.end(), ' '), comanda.end());
+                            size_t pos1 = comanda.find("(");
+                            size_t pos2;
+                            string table_name = comanda.substr(11, pos1 - 11);
+                            if (database.findIndexOfTable(table_name) != -1)
+                            {
+                                cout << "A table with the name " << table_name << " already exists";
+                            }
+                            else
+                            {
+                                pos1 += 2;
+                                database.createTable(table_name);
+                                while (pos1 < comanda.length())
+                                {
+                                    pos2 = comanda.find(",", pos1);
+                                    string column_name = comanda.substr(pos1, pos2 - pos1);
+                                    pos1 = pos2 + 1;
+                                    pos2 = comanda.find(",", pos1);
+                                    string column_type = comanda.substr(pos1, pos2 - pos1);
+                                    pos1 = pos2 + 1;
+                                    pos2 = comanda.find(",", pos1);
+                                    string column_size = comanda.substr(pos1, pos2 - pos1);
+                                    pos1 = pos2 + 1;
+                                    pos2 = comanda.find(")", pos1);
+                                    string default_value = comanda.substr(pos1, pos2 - pos1);
+                                    pos1 = pos2 + 3;
+                                    database.addColumnToTable(table_name, column_name, column_type, column_size, default_value);
+                                }
+                                cout << "Table " << table_name << " created\n";
+                            }
+                        }
+                        else
+                        {
+                            comanda.erase(remove(comanda.begin(), comanda.end(), ' '), comanda.end());
+                            size_t pos1 = comanda.find("(");
+                            size_t pos2;
+                            string table_name = comanda.substr(11, pos1 - 22);
+                            if (database.findIndexOfTable(table_name) != -1)
+                            {
+                                cout << "A table with the name " << table_name << " already exists";
+                            }
+                            else
+                            {
+                                pos1 = comanda.find("(");
+                                pos1 += 2;
+                                database.createTable(table_name);
+                                while (pos1 < comanda.length())
+                                {
+                                    pos2 = comanda.find(",", pos1);
+                                    string column_name = comanda.substr(pos1, pos2 - pos1);
+                                    pos1 = pos2 + 1;
+                                    pos2 = comanda.find(",", pos1);
+                                    string column_type = comanda.substr(pos1, pos2 - pos1);
+                                    pos1 = pos2 + 1;
+                                    pos2 = comanda.find(",", pos1);
+                                    string column_size = comanda.substr(pos1, pos2 - pos1);
+                                    pos1 = pos2 + 1;
+                                    pos2 = comanda.find(")", pos1);
+                                    string default_value = comanda.substr(pos1, pos2 - pos1);
+                                    pos1 = pos2 + 3;
+                                    database.addColumnToTable(table_name, column_name, column_type, column_size, default_value);
+                                }
+                                cout << "Table " << table_name << " created\n";
+                            }
+                        }
+                    }
+
+                    if (regex_match(comanda, drop_table))
+                    {
+                        valid = 1;
+                        comanda.erase(remove(comanda.begin(), comanda.end(), ' '), comanda.end());
+                        string table_name = comanda.substr(10, comanda.length() - 10);
+                        database.dropTable(table_name);
+                    }
+
+                    if (regex_match(comanda, display_table))
+                    {
+                        valid = 1;
+                        cout << "DISPLAY TABLE is a work in progress";
+                    }
+
+                    if (regex_match(comanda, insert_into))
+                    {
+                        valid = 1;
+                        size_t pos1 = comanda.find(" VALUES");
+                        size_t pos2;
+                        string table_name = comanda.substr(12, pos1 - 12);
+                        int table_index = database.findIndexOfTable(table_name);
+                        if (table_index == -1)
+                        {
+                            cout << "The table " << table_name << " doesn't exist\n";
+                        }
+                        else
+                        {
+                            comanda.erase(remove(comanda.begin(), comanda.end(), ' '), comanda.end());
+                            pos1 = comanda.find("(") + 1;
+                            int nr_of_values = 1;
+                            for (int i = pos1; i < comanda.length(); i++)
+                            {
+                                if (comanda[i] == ',')
+                                    nr_of_values++;
+                            }
+                            if (database.getNrOfColumnsOfTable(table_name) != nr_of_values)
+                            {
+                                cout << "The number of values typed for table " << table_name << " doesn't match the number of columns in that table\n";
+                            }
+                            else
+                            {
+                                database.getTable(table_name).addRow();
+                                string value;
+                                int column_nr = 0;
+                                while (pos1 < comanda.length())
+                                {
+                                    pos2 = comanda.find(',', pos1);
+                                    if (pos2 == string::npos)
+                                    {
+                                        pos2 = comanda.find(')', pos1);
+                                    }
+                                    value = comanda.substr(pos1, pos2 - pos1);
+                                    pos1 = pos2 + 1;
+                                    if (database.getTable(table_name).getColumnTypeByIndex(column_nr) != 3)
+                                    {
+                                        int i = 0;
+
+                                        if (database.getTable(table_name).getColumnTypeByIndex(column_nr) == 1)
+                                        {
+                                            regex integer("^([0-9]+)$");
+                                            if (!(regex_match(value, integer)))
+                                            {
+                                                cout << "ERROR: Column type for column " << database.getTable(table_name).getColumnNameByIndex(column_nr) << " in table " << table_name << "is INTEGER\n";
+                                            }
+                                            else
+                                            {
+                                                Content new_value(stoi(value));
+                                                database.getTable(table_name).addValueToRow(new_value, 1);
+
+                                            }
+                                        }
+
+                                        if (database.getTable(table_name).getColumnTypeByIndex(column_nr) == 2)
+                                        {
+                                            regex floating("^((.)*[0-9]+(.)*[0-9]*)$");
+                                            if (!(regex_match(value, floating)))
+                                            {
+                                                cout << "ERROR: Column type for column " << database.getTable(table_name).getColumnNameByIndex(column_nr) << " in table " << table_name << " is FLOAT\n";
+                                            }
+                                            else
+                                            {
+                                                Content new_value(stof(value));
+                                                database.getTable(table_name).addValueToRow(new_value, 2);
+                                            }
+                                        }
+                                    }
+                                    else
+                                    {
+                                        Content new_value(value);
+                                        database.getTable(table_name).addValueToRow(new_value, 3);
+
+                                    }
+                                    column_nr++;
+                                }
+                            }
+                            cout << "Row added to table " << table_name << "\n";
+                        }
+                    }
+                    if (regex_match(comanda, delete_from))
+                    {
+                        valid = 1;
+                        comanda.erase(remove(comanda.begin(), comanda.end(), ' '), comanda.end());
+                        size_t pos1 = comanda.find("WHERE");
+                        size_t pos2;
+                        string table_name = comanda.substr(10, pos1 - 10);
+                        if (database.findIndexOfTable(table_name) == -1)
+                        {
+                            cout << "There is no table named " << table_name << " in the database\n";
+                        }
+                        else
+                        {
+                            pos1 += 5;
+                            pos2 = comanda.find('=', pos1);
+                            string column = comanda.substr(pos1, pos2 - pos1);
+                            if (database.getTable(table_name).columnIndexByName(column) == -1)
+                            {
+                                cout << "There is no column named " << column << " in table " << table_name << endl;
+                            }
+                            else
+                            {
+                                string column_value = comanda.substr(pos2 + 1, comanda.length() - pos1);
+                                database.getTable(table_name).deleteFrom(column, column_value);
+                            }
+                        }
+                    }
+                    if (valid == 0)
+                    {
+                        cout << "Error while reading commands from argument file " << filenames[i] << ": commands not recognized, aborting...\n";
+                        break;
+                    }
+                }
+                file.close();
+            }
+            else
+            {
+            cout << "Error opening file " << filenames[i] << endl;
+            }
+            
+        }
+    }
+    void printArguments()
+    {
+        for (int i = 1; i < nr_of_files; i++)
+        {
+            printf("%s\n", filenames[i]);
+        }
+    }
+};
