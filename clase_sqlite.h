@@ -376,9 +376,9 @@ public:
     Row& operator=(const Row& r)
     {
         this->nr_of_values = r.nr_of_values;
-        if (this->values != nullptr)
+        if (values != nullptr)
         {
-            delete[] this->values;
+            delete[] values;
         }
         if (r.values != nullptr && r.nr_of_values != 0)
         {
@@ -870,7 +870,10 @@ public:
 
     bool operator>(Column c)
     {
-        return this->size > c.size;
+        if (size > c.size) {
+            return true;
+        }
+        else return false;
     }
 
     bool operator==(Column c)
@@ -1122,7 +1125,10 @@ public:
 
     bool operator>(Table t)
     {
-        return nr_of_rows>t.nr_of_rows;
+        if (nr_of_rows > t.nr_of_rows) {
+            return true;
+        }
+        else return false;
     }
 
     bool operator==(Table t)
@@ -1735,33 +1741,40 @@ public:
         }
         else
         {
-            Table* tables_copy;
-            tables_copy = new Table[nr_of_tables];
             for (int i = 0; i < nr_of_tables; i++)
             {
-                tables_copy[i] = tables[i];
-            }
-            delete[] tables;
-            //cout << "nr tabele: " << nr_of_tables << endl;
-            nr_of_tables--;
-            tables = new Table[nr_of_tables];
-            int i = 0;
-            int j = 0;
-            while (i < nr_of_tables)
-            {
-                if (table_to_drop == tables_copy[j].getTableName())
-                {
-                    tables[i] = tables_copy[++j];
+                if (table_to_drop == tables[i].getTableName()) {
+                    Table* tables_copy;
+                    tables_copy = new Table[nr_of_tables];
+                    for (int i = 0; i < nr_of_tables; i++)
+                    {
+                        tables_copy[i] = tables[i];
+                    }
+                    delete[] tables;
+                    //cout << "nr tabele: " << nr_of_tables << endl;
+                    nr_of_tables--;
+                    tables = new Table[nr_of_tables];
+                    int i = 0;
+                    int j = 0;
+                    while (i < nr_of_tables)
+                    {
+                        if (table_to_drop == tables_copy[j].getTableName())
+                        {
+                            tables[i] = tables_copy[++j];
+                        }
+                        else
+                        {
+                            tables[i] = tables_copy[j];
+                        }
+                        i++;
+                        j++;
+                    }
+                    delete[] tables_copy;
+                    cout << "Table " << table_to_drop << " dropped\n";
                 }
                 else
-                {
-                    tables[i] = tables_copy[j];
-                }
-                i++;
-                j++;
-            }
-            delete[] tables_copy;
-            cout << "Table " << table_to_drop << " dropped\n";
+                    cout << "There is no such table" << endl;
+            }  
         }
     }
 
