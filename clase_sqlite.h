@@ -3,6 +3,7 @@
 #include <string>
 #include <regex>
 #include<tgmath.h>
+#include <iomanip>
 using namespace std;
 
 class Content
@@ -117,7 +118,7 @@ public:
 
     void setIntContent(int x)
     {
-        if(content_type == 1)
+        if (content_type == 1)
             int_content = x;
         else
         {
@@ -382,7 +383,7 @@ public:
         }
         if (r.values != nullptr && r.nr_of_values != 0)
         {
-            
+
             this->values = new Content[r.nr_of_values];
             for (int i = 0; i < r.nr_of_values; i++)
             {
@@ -578,14 +579,34 @@ public:
         return values[i].getIntContent();
     }
 
+    void setIntValueByIndex(int value, int i)
+    {
+        values[i].setIntContent(value);
+    }
+
     float getFloatValueByIndex(int i)
     {
         return values[i].getFloatContent();
     }
 
+    void setFloatValueByIndex(float value, int i)
+    {
+        values[i].setFloatContent(value);
+    }
+
     string getTextValueByIndex(int i)
     {
         return values[i].getTextContent();
+    }
+
+    void setTextValueByIndex(string value, int i)
+    {
+        values[i].setTextContent(value);
+    }
+
+    int getValueTypeByIndex(int i)
+    {
+        return values[i].getContentType();
     }
 
     friend ostream& operator<<(ostream&, Row&);
@@ -598,7 +619,7 @@ private:
 
 ostream& operator<<(ostream& o, Row& r)
 {
-    o << "Nr of values: "<< r.nr_of_values << endl;
+    o << "Nr of values: " << r.nr_of_values << endl;
     if (r.values != nullptr)
     {
         for (int i = 0; i < r.nr_of_values; i++)
@@ -781,31 +802,31 @@ public:
 
     void setName(string name)
     {
-        if(name != "NaN")
+        if (name != "NaN")
             this->name = name;
     }
 
     void setContentType(int type)
     {
-        if(type == 1 || type == 2 || type == 3)
+        if (type == 1 || type == 2 || type == 3)
             content_type = type;
     }
 
     void setSize(int size)
     {
-        if(size >= 1)
+        if (size >= 1)
             this->size = size;
     }
 
     void setDefaultIntContent(int int_content)
     {
-        if(int_content < pow(10, size))
+        if (int_content < pow(10, size))
             default_int_content = int_content;
     }
 
     void setDefaultFloatContent(float float_content)
     {
-        if(float_content < pow(10, size))
+        if (float_content < pow(10, size))
             default_float_content = float_content;
     }
 
@@ -835,9 +856,9 @@ public:
 
     Column operator+(int addToSize)
     {
-            Column column_copy = *this;
-            column_copy.size += addToSize;
-            return column_copy;
+        Column column_copy = *this;
+        column_copy.size += addToSize;
+        return column_copy;
     }
 
     int operator[](int index)
@@ -857,14 +878,14 @@ public:
         if (content_type == 0)
         {
             throw exception("Column with uninitialized content");
-        }  
+        }
     }
 
     explicit operator int()
     {
-        if(content_type == 1)
+        if (content_type == 1)
             return default_int_content;
-        else 
+        else
             throw exception("Column doesn't have integer type");
     }
 
@@ -883,7 +904,7 @@ public:
 
     friend ostream& operator<<(ostream&, Column&);
     friend istream& operator>>(istream&, Column&);
-    
+
 private:
     string name;
     //0 - uninitialized, 1 - int, 2 - float, 3 - string
@@ -1361,13 +1382,457 @@ public:
         }
     }
 
-    
+    void select(bool all, string* select_columns, int select_nr_of_columns, bool where, string criterium_column, string criterium_value)
+    {
+        regex integer("^([0-9]+)$");
+        regex floating("^((.)*[0-9]+(.)*[0-9]*)$");
+        //cout << "macar aici a ajuns?\n";
+        if (!all)
+        {
+            for (int i = 0; i < select_nr_of_columns; i++)
+            {
+                cout << select_columns[i] << "   ";
+            }
+
+            cout << endl;
+
+            if (!where)
+            {
+                for (int i = 0; i < nr_of_rows; i++)
+                {
+                        for (int j = 0; j < select_nr_of_columns; j++)
+                        {
+                            switch (this->rows[i].getValueTypeByIndex(this->columnIndexByName(select_columns[j]))) {
+                            case 1:
+                                cout << this->rows[i].getIntValueByIndex(this->columnIndexByName(select_columns[j])) << "   ";
+                                break;
+                            case 2:
+                                cout << this->rows[i].getFloatValueByIndex(this->columnIndexByName(select_columns[j])) << "   ";
+                                break;
+                            case 3:
+                                cout << this->rows[i].getTextValueByIndex(this->columnIndexByName(select_columns[j])) << "   ";
+                                break;
+                            }
+                        }
+                        cout << endl;
+                }
+            }
+            if (where)
+            {
+                int criterium_column_type = rows[0].getValueTypeByIndex(this->columnIndexByName(criterium_column));
+                if (criterium_column_type != 3)
+                {
+                    if (criterium_column_type == 1)
+                    {
+                        if (regex_match(criterium_value, integer))
+                        {
+                            for (int i = 0; i < nr_of_rows; i++)
+                            {
+                                if (stoi(criterium_value) == rows[i].getIntValueByIndex(this->columnIndexByName(criterium_column)))
+                                {
+                                    for (int j = 0; j < select_nr_of_columns; j++)
+                                    {
+                                        switch (this->rows[i].getValueTypeByIndex(this->columnIndexByName(select_columns[j]))) {
+                                        case 1:
+                                            cout << this->rows[i].getIntValueByIndex(this->columnIndexByName(select_columns[j])) << "   ";
+                                            break;
+                                        case 2:
+                                            cout << this->rows[i].getFloatValueByIndex(this->columnIndexByName(select_columns[j])) << "   ";
+                                            break;
+                                        case 3:
+                                            cout << this->rows[i].getTextValueByIndex(this->columnIndexByName(select_columns[j])) << "   ";
+                                            break;
+                                        }
+                                    }
+                                    cout << endl;
+                                }
+                            }
+                        }
+
+                        if (regex_match(criterium_value, floating))
+                        {
+                            for (int i = 0; i < nr_of_rows; i++)
+                            {
+                                if (stof(criterium_value) == rows[i].getFloatValueByIndex(this->columnIndexByName(criterium_column)))
+                                {
+                                    for (int j = 0; j < select_nr_of_columns; j++)
+                                    {
+                                        switch (this->rows[i].getValueTypeByIndex(this->columnIndexByName(select_columns[j]))) {
+                                        case 1:
+                                            cout << this->rows[i].getIntValueByIndex(this->columnIndexByName(select_columns[j])) << "   ";
+                                            break;
+                                        case 2:
+                                            cout << this->rows[i].getFloatValueByIndex(this->columnIndexByName(select_columns[j])) << "   ";
+                                            break;
+                                        case 3:
+                                            cout << this->rows[i].getTextValueByIndex(this->columnIndexByName(select_columns[j])) << "   ";
+                                            break;
+                                        }
+                                    }
+                                    cout << endl;
+                                }
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    for (int i = 0; i < nr_of_rows; i++)
+                    {
+                        if (criterium_value == rows[i].getTextValueByIndex(this->columnIndexByName(criterium_column)))
+                        {
+                            for (int j = 0; j < select_nr_of_columns; j++)
+                            {
+                                switch (this->rows[i].getValueTypeByIndex(this->columnIndexByName(select_columns[j]))) {
+                                case 1:
+                                    cout << this->rows[i].getIntValueByIndex(this->columnIndexByName(select_columns[j])) << "   ";
+                                    break;
+                                case 2:
+                                    cout << this->rows[i].getFloatValueByIndex(this->columnIndexByName(select_columns[j])) << "   ";
+                                    break;
+                                case 3:
+                                    cout << this->rows[i].getTextValueByIndex(this->columnIndexByName(select_columns[j])) << "   ";
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    cout << endl;
+                }
+            }
+        }
+        else
+        {
+            if (!where)
+            {
+                for (int i = 0; i < nr_of_rows; i++)
+                {
+                    //cout << "hatz1\n";
+                    for (int j = 0; j < nr_of_columns; j++)
+                    {
+                        switch (this->rows[i].getValueTypeByIndex(j)) {
+                        case 1:
+                            cout << this->rows[i].getIntValueByIndex(j) << "   ";
+                            break;
+                        case 2:
+                            cout << this->rows[i].getFloatValueByIndex(j) << "   ";
+                            break;
+                        case 3:
+                            cout << this->rows[i].getTextValueByIndex(j) << "   ";
+                            break;
+                        }
+                        
+                    }
+                }
+            }
+            if (where)
+            {
+                int criterium_column_type = rows[0].getValueTypeByIndex(this->columnIndexByName(criterium_column));
+                if (criterium_column_type != 3)
+                {
+                    if (criterium_column_type == 1)
+                    {
+                        if (regex_match(criterium_value, integer))
+                        {
+                            for (int i = 0; i < nr_of_rows; i++)
+                            {
+                                if (stoi(criterium_value) == rows[i].getIntValueByIndex(this->columnIndexByName(criterium_column)))
+                                {
+                                    for (int j = 0; j < nr_of_columns; j++)
+                                    {
+                                        switch (this->rows[i].getValueTypeByIndex(j)) {
+                                        case 1:
+                                            cout << this->rows[i].getIntValueByIndex(j) << "   ";
+                                            break;
+                                        case 2:
+                                            cout << this->rows[i].getFloatValueByIndex(j) << "   ";
+                                            break;
+                                        case 3:
+                                            cout << this->rows[i].getTextValueByIndex(j) << "   ";
+                                            break;
+                                        }
+                                    }
+                                    cout << endl;
+                                }
+                            }
+                        }
+
+                        if (regex_match(criterium_value, floating))
+                        {
+                            for (int i = 0; i < nr_of_rows; i++)
+                            {
+                                if (stof(criterium_value) == rows[i].getFloatValueByIndex(this->columnIndexByName(criterium_column)))
+                                {
+                                    for (int j = 0; j < nr_of_columns; j++)
+                                    {
+                                        switch (this->rows[i].getValueTypeByIndex(j)) {
+                                        case 1:
+                                            cout << this->rows[i].getIntValueByIndex(j) << "   ";
+                                            break;
+                                        case 2:
+                                            cout << this->rows[i].getFloatValueByIndex(j) << "   ";
+                                            break;
+                                        case 3:
+                                            cout << this->rows[i].getTextValueByIndex(j) << "   ";
+                                            break;
+                                        }
+                                    }
+                                    cout << endl;
+                                }
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    for (int i = 0; i < nr_of_rows; i++)
+                    {
+                        if (criterium_value == rows[i].getTextValueByIndex(this->columnIndexByName(criterium_column)))
+                        {
+                            for (int j = 0; j < nr_of_columns; j++)
+                            {
+                                switch (this->rows[i].getValueTypeByIndex(j)) {
+                                case 1:
+                                    cout << this->rows[i].getIntValueByIndex(j) << "   ";
+                                    break;
+                                case 2:
+                                    cout << this->rows[i].getFloatValueByIndex(j) << "   ";
+                                    break;
+                                case 3:
+                                    cout << this->rows[i].getTextValueByIndex(j) << "   ";
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    cout << endl;
+                }
+            }
+        }
+    }
+
+    void update(string column_to_update, string updated_value, string criterium_column, string criterium_value)
+    {
+        regex integer("^([0-9]+)$");
+        regex floating("^((.)*[0-9]+(.)*[0-9]*)$");
+        int criterium_column_type = rows[0].getValueTypeByIndex(this->columnIndexByName(criterium_column));
+        int column_to_update_type = rows[0].getValueTypeByIndex(this->columnIndexByName(column_to_update));
+        cout << "a intrat in update\n";
+        if (criterium_column_type != 3)
+        {
+            if (criterium_column_type == 1)
+            {
+                if (regex_match(criterium_value, integer))
+                {
+                    for (int i = 0; i < nr_of_rows; i++)
+                    {
+                        if (stoi(criterium_value) == rows[i].getIntValueByIndex(this->columnIndexByName(criterium_column)))
+                        {
+                            if (column_to_update_type != 3)
+                            {
+                                if (column_to_update_type == 1)
+                                {
+                                    if (regex_match(updated_value, integer))
+                                    {
+                                        rows[i].setIntValueByIndex(stoi(updated_value), this->columnIndexByName(column_to_update));
+                                        cout << "Value updated for row " << this->columnIndexByName(column_to_update) << endl;
+                                    }
+                                    else
+                                    {
+                                        cout << "Column to be updated requires integer type, aborting update statement...\n";
+                                    }
+                                }
+
+                                if (column_to_update_type == 2)
+                                {
+                                    if (regex_match(updated_value, floating))
+                                    {
+                                        rows[i].setFloatValueByIndex(stof(updated_value), this->columnIndexByName(column_to_update));
+                                        cout << "Value updated for row " << this->columnIndexByName(column_to_update) << endl;
+                                    }
+                                    else
+                                    {
+                                        cout << "Column to be updated requires float type, aborting update statement...\n";
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                rows[i].setTextValueByIndex(updated_value, this->columnIndexByName(column_to_update));
+                                cout << "Value updated for row " << this->columnIndexByName(column_to_update) << endl;
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    cout << "Column type for criterium column in UPDATE clause is integer, but value provided is not integer, aborting update statement...\n";
+                }
+            }
+
+            if (criterium_column_type == 2)
+            {
+                if (regex_match(criterium_value, floating))
+                {
+                    for (int i = 0; i < nr_of_rows; i++)
+                    {
+                        if (stof(criterium_value) == rows[i].getFloatValueByIndex(this->columnIndexByName(criterium_column)))
+                        {
+                            if (column_to_update_type != 3)
+                            {
+                                if (column_to_update_type == 1)
+                                {
+                                    if (regex_match(updated_value, integer))
+                                    {
+                                        rows[i].setIntValueByIndex(stoi(updated_value), this->columnIndexByName(column_to_update));
+                                        cout << "Value updated for row " << this->columnIndexByName(column_to_update) << endl;
+                                    }
+                                    else
+                                    {
+                                        cout << "Column to be updated requires integer type, aborting update statement...\n";
+                                    }
+                                }
+
+                                if (column_to_update_type == 2)
+                                {
+                                    if (regex_match(updated_value, floating))
+                                    {
+                                        rows[i].setFloatValueByIndex(stof(updated_value), this->columnIndexByName(column_to_update));
+                                        cout << "Value updated for row " << this->columnIndexByName(column_to_update) << endl;
+                                    }
+                                    else
+                                    {
+                                        cout << "Column to be updated requires float type, aborting update statement...\n";
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                rows[i].setTextValueByIndex(updated_value, this->columnIndexByName(column_to_update));
+                                cout << "Value updated for row " << this->columnIndexByName(column_to_update) << endl;
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    cout << "Column type for criterium column in UPDATE clause is float, but value provided is not float, aborting update statement...\n";
+                }
+            }
+
+        }
+        else
+        {
+        cout << "column type e 3 in update\n";
+            for (int i = 0; i < nr_of_rows; i++)
+            {
+                cout << "a intrat in for\n";
+                if (criterium_value == rows[i].getTextValueByIndex(this->columnIndexByName(criterium_column)))
+                {
+                    if (column_to_update_type != 3)
+                    {
+                        if (column_to_update_type == 1)
+                        {
+                            if (regex_match(updated_value, integer))
+                            {
+                                rows[i].setIntValueByIndex(stoi(updated_value), this->columnIndexByName(column_to_update));
+                                cout << "Value updated for row " << this->columnIndexByName(column_to_update) << endl;
+                            }
+                            else
+                            {
+                                cout << "Column to be updated requires integer type, aborting update statement...\n";
+                            }
+                        }
+
+                        if (column_to_update_type == 2)
+                        {
+                            if (regex_match(updated_value, floating))
+                            {
+                                rows[i].setFloatValueByIndex(stof(updated_value), this->columnIndexByName(column_to_update));
+                                cout << "Value updated for row " << this->columnIndexByName(column_to_update) << endl;
+                            }
+                            else
+                            {
+                                cout << "Column to be updated requires float type, aborting update statement...\n";
+                            }
+                        }
+                    }
+                    else
+                    {
+                        rows[i].setTextValueByIndex(updated_value, this->columnIndexByName(column_to_update));
+                        cout << "Value updated for row " << this->columnIndexByName(column_to_update) << endl;
+                    }
+                }
+            }
+        } 
+    }
+
+    void display()
+    {
+        int max_column_size = columns[0].getColumnSize();
+        for (int i = 1; i < nr_of_columns; i++)
+        {
+            if (max_column_size < columns[i].getColumnSize())
+            {
+                max_column_size = columns[i].getColumnSize();
+            }
+        }
+        cout << endl;
+        cout << setw((max_column_size+5)*this->getNrOfColumns()/2) << name;
+        cout << endl << endl;
+        cout << columns[0].getColumnName();
+        for (int i = 1; i < nr_of_columns; i++)
+        {
+            cout << setw(max_column_size+5) << columns[i].getColumnName();
+        }
+        cout << endl << endl;
+        string element_before;
+        for (int i = 0; i < nr_of_rows; i++)
+        {
+            int width = 0;
+            switch (rows[i].getValueTypeByIndex(0)) {
+            case 1:
+                cout << rows[i].getIntValueByIndex(0);
+                width = (max_column_size + 5 - to_string(rows[i].getIntValueByIndex(0)).length());
+                break;
+            case 2:
+                cout << rows[i].getFloatValueByIndex(0);
+                width = (max_column_size + 5 - to_string(rows[i].getFloatValueByIndex(0)).length());
+                break;
+            case 3:
+                cout << rows[i].getTextValueByIndex(0);
+                width = (max_column_size + 5 - rows[i].getTextValueByIndex(0).length());
+                break;
+            }
+
+            for (int j = 1; j < nr_of_columns; j++)
+            {
+                cout << setw(width);
+                switch (rows[i].getValueTypeByIndex(j)) {
+                case 1:
+                    cout << rows[i].getIntValueByIndex(j);
+                    width = (max_column_size + 5 - to_string(rows[i].getIntValueByIndex(j)).length() + columns[j - 1].getColumnName().length());
+                    break;
+                case 2:
+                    cout << rows[i].getFloatValueByIndex(j);
+                    width = (max_column_size + 5 + to_string(rows[i].getFloatValueByIndex(j)).length() + columns[j - 1].getColumnName().length());
+                    break;
+                case 3:
+                    cout << rows[i].getTextValueByIndex(j);
+                    width = (max_column_size + 5 + rows[i].getTextValueByIndex(j).length() + columns[j - 1].getColumnName().length());
+                    break;  
+                }      
+            }
+            cout << endl;          
+        }
+        cout << endl;
+    }
 
     string getTableName()
     {
         return name;
     }
-    
+
 
     void setName(string name)
     {
@@ -1474,9 +1939,9 @@ ofstream& operator<<(ofstream& o, Table& t)
     if (t.columns != nullptr)
     {
         for (int i = 0; i < t.nr_of_columns; i++)
-        {   
+        {
             o << endl;
-            o << t.columns[i].getColumnName() <<endl;
+            o << t.columns[i].getColumnName() << endl;
             o << t.columns[i].getColumnType() << endl;
             o << t.columns[i].getColumnSize() << endl;
             if (t.columns[i].getColumnType() == 1)
@@ -1512,7 +1977,7 @@ public:
         this->tables = nullptr;
     }
 
-    Database(int nr_of_tables,Table* tables)
+    Database(int nr_of_tables, Table* tables)
     {
         this->nr_of_tables = nr_of_tables;
         this->tables = tables;
@@ -1544,7 +2009,7 @@ public:
         this->nr_of_tables = c.nr_of_tables;
         if (this->tables != nullptr)
             delete[] this->tables;
-        if (c.nr_of_tables == 0 || c.tables ==  nullptr)
+        if (c.nr_of_tables == 0 || c.tables == nullptr)
         {
             this->tables = nullptr;
         }
@@ -1566,20 +2031,20 @@ public:
 
     Database& operator++()
     {
-            Table* tables_copy;
-            tables_copy = new Table[nr_of_tables];
-            for (int i = 0; i < nr_of_tables; i++)
-            {
-                tables_copy[i] = tables[i];
-            }
-            nr_of_tables += 1;
-            delete[] tables;
-            tables = new Table[nr_of_tables];
-            for (int i = 0; i < nr_of_tables - 1; i++)
-            {
-                tables[i] = tables_copy[i];
-            }
-            delete[] tables_copy;
+        Table* tables_copy;
+        tables_copy = new Table[nr_of_tables];
+        for (int i = 0; i < nr_of_tables; i++)
+        {
+            tables_copy[i] = tables[i];
+        }
+        nr_of_tables += 1;
+        delete[] tables;
+        tables = new Table[nr_of_tables];
+        for (int i = 0; i < nr_of_tables - 1; i++)
+        {
+            tables[i] = tables_copy[i];
+        }
+        delete[] tables_copy;
         return *this;
     }
 
@@ -1603,7 +2068,7 @@ public:
         return database_copy;
     }
 
-   Database& operator+(Table t)
+    Database& operator+(Table t)
     {
         Database database_copy = *this;
         if (database_copy.nr_of_tables != 0 && database_copy.tables != nullptr)
@@ -1620,7 +2085,7 @@ public:
                 delete[] database_copy.tables;
             }
             database_copy.tables = new Table[database_copy.nr_of_tables];
-            for (int i = 0; i < database_copy.nr_of_tables-1; i++)
+            for (int i = 0; i < database_copy.nr_of_tables - 1; i++)
             {
                 database_copy.tables[i] = tables_copy[i];
             }
@@ -1774,7 +2239,7 @@ public:
                 }
                 else
                     cout << "There is no such table" << endl;
-            }  
+            }
         }
     }
 
@@ -1837,10 +2302,10 @@ public:
             for (int i = 0; i < nr_of_files; i++)
             {
                 this->filenames[i] = new char[strlen(filenames[i]) + 1];
-                strcpy_s(this->filenames[i], strlen(filenames[i])+1, filenames[i]);
+                strcpy_s(this->filenames[i], strlen(filenames[i]) + 1, filenames[i]);
             }
         }
-        else 
+        else
         {
             nr_of_files = 0;
             filenames = nullptr;
@@ -2086,9 +2551,9 @@ public:
             }
             else
             {
-            cout << "Error opening file " << filenames[i] << endl;
+                cout << "Error opening file " << filenames[i] << endl;
             }
-            
+
         }
     }
     void printArguments()
