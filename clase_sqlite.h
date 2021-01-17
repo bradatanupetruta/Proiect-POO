@@ -727,7 +727,7 @@ public:
             this->default_text_content = c.default_text_content;
         return *this;
     }
-    void setNewColumn(string new_column_name, string new_column_type, string new_column_size, string new_default_type)
+    void setNewColumn(int& error,string new_column_name, string new_column_type, string new_column_size, string new_default_type)
     {
         size = stoi(new_column_size);
         name = new_column_name;
@@ -741,6 +741,7 @@ public:
             else
             {
                 cout << "Default value too big for column " << name << endl;
+                error = 1;
             }
         }
         if (new_column_type[0] == 'F')
@@ -753,6 +754,7 @@ public:
             else
             {
                 cout << "Default value too big for column " << name << endl;
+                error = 1;
             }
         }
         if (new_column_type[0] == 'T')
@@ -765,6 +767,7 @@ public:
             else
             {
                 cout << "Default value too big for column " << name << endl;
+                error = 1;
             }
 
         }
@@ -1044,6 +1047,11 @@ public:
         return *this;
     }
 
+    int getNrOfRows()
+    {
+        return nr_of_rows;
+    }
+
     bool operator!()
     {
         return nr_of_rows == 0;
@@ -1181,13 +1189,13 @@ public:
     friend istream& operator>>(istream&, Table&);
     friend ofstream& operator<<(ofstream&, Table& t);
 
-    void addColumn(string column_name, string column_type, string column_size, string default_type)
+    void addColumn(int& error,string column_name, string column_type, string column_size, string default_type)
     {
         if (columns == nullptr || nr_of_columns == 0)
         {
             nr_of_columns = 1;
             columns = new Column[nr_of_columns];
-            columns[0].setNewColumn(column_name, column_type, column_size, default_type);
+            columns[0].setNewColumn(error,column_name, column_type, column_size, default_type);
         }
         else
         {
@@ -1204,7 +1212,7 @@ public:
             {
                 columns[i] = columns_copy[i];
             }
-            columns[nr_of_columns - 1].setNewColumn(column_name, column_type, column_size, default_type);
+            columns[nr_of_columns - 1].setNewColumn(error,column_name, column_type, column_size, default_type);
             delete[] columns_copy;
         }
     }
@@ -1389,33 +1397,62 @@ public:
         //cout << "macar aici a ajuns?\n";
         if (!all)
         {
-            for (int i = 0; i < select_nr_of_columns; i++)
+            cout << endl;
+            int max_column_size = columns[this->columnIndexByName(select_columns[0])].getColumnSize();
+            for (int i = 1; i < select_nr_of_columns; i++)
             {
-                cout << select_columns[i] << "   ";
+                if (max_column_size < columns[this->columnIndexByName(select_columns[i])].getColumnSize())
+                {
+                    max_column_size = columns[this->columnIndexByName(select_columns[i])].getColumnSize();
+                }
             }
 
-            cout << endl;
+            cout << select_columns[0];
+
+            for (int i = 1; i < select_nr_of_columns; i++)
+            {
+                cout << setw(max_column_size + 5) << select_columns[i];
+            }
+
+            cout << endl << endl;
 
             if (!where)
             {
                 for (int i = 0; i < nr_of_rows; i++)
                 {
-                        for (int j = 0; j < select_nr_of_columns; j++)
+                    int width = 0;
+                    switch (this->rows[i].getValueTypeByIndex(this->columnIndexByName(select_columns[0]))) {
+                    case 1:
+                        cout << this->rows[i].getIntValueByIndex(this->columnIndexByName(select_columns[0]));
+                        width = (max_column_size + 5 - to_string(rows[i].getIntValueByIndex(this->columnIndexByName(select_columns[0]))).length());
+                        break;
+                    case 2:
+                        cout << this->rows[i].getFloatValueByIndex(this->columnIndexByName(select_columns[0]));
+                        width = (max_column_size + 5 - to_string(rows[i].getFloatValueByIndex(this->columnIndexByName(select_columns[0]))).length());
+                        break;
+                    case 3:
+                        cout << this->rows[i].getTextValueByIndex(this->columnIndexByName(select_columns[0]));
+                        width = (max_column_size + 5 - rows[i].getTextValueByIndex(this->columnIndexByName(select_columns[0])).length());
+                        break;
+                    }
+
+                        for (int j = 1; j < select_nr_of_columns; j++)
                         {
                             switch (this->rows[i].getValueTypeByIndex(this->columnIndexByName(select_columns[j]))) {
                             case 1:
-                                cout << this->rows[i].getIntValueByIndex(this->columnIndexByName(select_columns[j])) << "   ";
+                                cout << setw(width) << this->rows[i].getIntValueByIndex(this->columnIndexByName(select_columns[j]));
                                 break;
                             case 2:
-                                cout << this->rows[i].getFloatValueByIndex(this->columnIndexByName(select_columns[j])) << "   ";
+                                cout << setw(width) << this->rows[i].getFloatValueByIndex(this->columnIndexByName(select_columns[j]));
                                 break;
                             case 3:
-                                cout << this->rows[i].getTextValueByIndex(this->columnIndexByName(select_columns[j])) << "   ";
+                                cout << setw(width) << this->rows[i].getTextValueByIndex(this->columnIndexByName(select_columns[j]));
                                 break;
                             }
                         }
                         cout << endl;
                 }
+                cout << endl << endl;
             }
             if (where)
             {
@@ -1430,24 +1467,41 @@ public:
                             {
                                 if (stoi(criterium_value) == rows[i].getIntValueByIndex(this->columnIndexByName(criterium_column)))
                                 {
-                                    for (int j = 0; j < select_nr_of_columns; j++)
+                                    int width = 0;
+                                    switch (this->rows[i].getValueTypeByIndex(this->columnIndexByName(select_columns[0]))) {
+                                    case 1:
+                                        cout << this->rows[i].getIntValueByIndex(this->columnIndexByName(select_columns[0]));
+                                        width = (max_column_size + 5 - to_string(rows[i].getIntValueByIndex(this->columnIndexByName(select_columns[0]))).length());
+                                        break;
+                                    case 2:
+                                        cout << this->rows[i].getFloatValueByIndex(this->columnIndexByName(select_columns[0]));
+                                        width = (max_column_size + 5 - to_string(rows[i].getFloatValueByIndex(this->columnIndexByName(select_columns[0]))).length());
+                                        break;
+                                    case 3:
+                                        cout << this->rows[i].getTextValueByIndex(this->columnIndexByName(select_columns[0]));
+                                        width = (max_column_size + 5 - rows[i].getTextValueByIndex(this->columnIndexByName(select_columns[0])).length());
+                                        break;
+                                    }
+
+                                    for (int j = 1; j < select_nr_of_columns; j++)
                                     {
                                         switch (this->rows[i].getValueTypeByIndex(this->columnIndexByName(select_columns[j]))) {
                                         case 1:
-                                            cout << this->rows[i].getIntValueByIndex(this->columnIndexByName(select_columns[j])) << "   ";
+                                            cout << setw(width) << this->rows[i].getIntValueByIndex(this->columnIndexByName(select_columns[j]));
                                             break;
                                         case 2:
-                                            cout << this->rows[i].getFloatValueByIndex(this->columnIndexByName(select_columns[j])) << "   ";
+                                            cout << setw(width) << this->rows[i].getFloatValueByIndex(this->columnIndexByName(select_columns[j]));
                                             break;
                                         case 3:
-                                            cout << this->rows[i].getTextValueByIndex(this->columnIndexByName(select_columns[j])) << "   ";
+                                            cout << setw(width) << this->rows[i].getTextValueByIndex(this->columnIndexByName(select_columns[j]));
                                             break;
                                         }
                                     }
-                                    cout << endl;
+                                    cout << endl << endl;
                                 }
                             }
                         }
+                    }
 
                         if (regex_match(criterium_value, floating))
                         {
@@ -1455,25 +1509,41 @@ public:
                             {
                                 if (stof(criterium_value) == rows[i].getFloatValueByIndex(this->columnIndexByName(criterium_column)))
                                 {
-                                    for (int j = 0; j < select_nr_of_columns; j++)
+                                    int width = 0;
+                                    switch (this->rows[i].getValueTypeByIndex(this->columnIndexByName(select_columns[0]))) {
+                                    case 1:
+                                        cout << this->rows[i].getIntValueByIndex(this->columnIndexByName(select_columns[0]));
+                                        width = (max_column_size + 5 - to_string(rows[i].getIntValueByIndex(this->columnIndexByName(select_columns[0]))).length());
+                                        break;
+                                    case 2:
+                                        cout << this->rows[i].getFloatValueByIndex(this->columnIndexByName(select_columns[0]));
+                                        width = (max_column_size + 5 - to_string(rows[i].getFloatValueByIndex(this->columnIndexByName(select_columns[0]))).length());
+                                        break;
+                                    case 3:
+                                        cout << this->rows[i].getTextValueByIndex(this->columnIndexByName(select_columns[0]));
+                                        width = (max_column_size + 5 - rows[i].getTextValueByIndex(this->columnIndexByName(select_columns[0])).length());
+                                        break;
+                                    }
+
+                                    for (int j = 1; j < select_nr_of_columns; j++)
                                     {
                                         switch (this->rows[i].getValueTypeByIndex(this->columnIndexByName(select_columns[j]))) {
                                         case 1:
-                                            cout << this->rows[i].getIntValueByIndex(this->columnIndexByName(select_columns[j])) << "   ";
+                                            cout << setw(width) << this->rows[i].getIntValueByIndex(this->columnIndexByName(select_columns[j]));
                                             break;
                                         case 2:
-                                            cout << this->rows[i].getFloatValueByIndex(this->columnIndexByName(select_columns[j])) << "   ";
+                                            cout << setw(width) << this->rows[i].getFloatValueByIndex(this->columnIndexByName(select_columns[j]));
                                             break;
                                         case 3:
-                                            cout << this->rows[i].getTextValueByIndex(this->columnIndexByName(select_columns[j])) << "   ";
+                                            cout << setw(width) << this->rows[i].getTextValueByIndex(this->columnIndexByName(select_columns[j]));
                                             break;
                                         }
                                     }
-                                    cout << endl;
+                                    cout << endl << endl;
                                 }
                             }
                         }
-                    }
+                    
                 }
                 else
                 {
@@ -1483,17 +1553,37 @@ public:
                         {
                             for (int j = 0; j < select_nr_of_columns; j++)
                             {
-                                switch (this->rows[i].getValueTypeByIndex(this->columnIndexByName(select_columns[j]))) {
+                                int width = 0;
+                                switch (this->rows[i].getValueTypeByIndex(this->columnIndexByName(select_columns[0]))) {
                                 case 1:
-                                    cout << this->rows[i].getIntValueByIndex(this->columnIndexByName(select_columns[j])) << "   ";
+                                    cout << this->rows[i].getIntValueByIndex(this->columnIndexByName(select_columns[0]));
+                                    width = (max_column_size + 5 - to_string(rows[i].getIntValueByIndex(this->columnIndexByName(select_columns[0]))).length());
                                     break;
                                 case 2:
-                                    cout << this->rows[i].getFloatValueByIndex(this->columnIndexByName(select_columns[j])) << "   ";
+                                    cout << this->rows[i].getFloatValueByIndex(this->columnIndexByName(select_columns[0]));
+                                    width = (max_column_size + 5 - to_string(rows[i].getFloatValueByIndex(this->columnIndexByName(select_columns[0]))).length());
                                     break;
                                 case 3:
-                                    cout << this->rows[i].getTextValueByIndex(this->columnIndexByName(select_columns[j])) << "   ";
+                                    cout << this->rows[i].getTextValueByIndex(this->columnIndexByName(select_columns[0]));
+                                    width = (max_column_size + 5 - rows[i].getTextValueByIndex(this->columnIndexByName(select_columns[0])).length());
                                     break;
                                 }
+
+                                for (int j = 1; j < select_nr_of_columns; j++)
+                                {
+                                    switch (this->rows[i].getValueTypeByIndex(this->columnIndexByName(select_columns[j]))) {
+                                    case 1:
+                                        cout << setw(width) << this->rows[i].getIntValueByIndex(this->columnIndexByName(select_columns[j]));
+                                        break;
+                                    case 2:
+                                        cout << setw(width) << this->rows[i].getFloatValueByIndex(this->columnIndexByName(select_columns[j]));
+                                        break;
+                                    case 3:
+                                        cout << setw(width) << this->rows[i].getTextValueByIndex(this->columnIndexByName(select_columns[j]));
+                                        break;
+                                    }
+                                }
+                                cout << endl;
                             }
                         }
                     }
@@ -1505,28 +1595,25 @@ public:
         {
             if (!where)
             {
-                for (int i = 0; i < nr_of_rows; i++)
-                {
-                    //cout << "hatz1\n";
-                    for (int j = 0; j < nr_of_columns; j++)
-                    {
-                        switch (this->rows[i].getValueTypeByIndex(j)) {
-                        case 1:
-                            cout << this->rows[i].getIntValueByIndex(j) << "   ";
-                            break;
-                        case 2:
-                            cout << this->rows[i].getFloatValueByIndex(j) << "   ";
-                            break;
-                        case 3:
-                            cout << this->rows[i].getTextValueByIndex(j) << "   ";
-                            break;
-                        }
-                        
-                    }
-                }
+                this->display();
             }
             if (where)
             {
+                int max_column_size = columns[0].getColumnSize();
+                for (int i = 1; i < nr_of_columns; i++)
+                {
+                    if (max_column_size < columns[i].getColumnSize())
+                    {
+                        max_column_size = columns[i].getColumnSize();
+                    }
+                }
+                cout << endl << endl;
+                cout << columns[0].getColumnName();
+                for (int i = 1; i < nr_of_columns; i++)
+                {
+                    cout << setw(max_column_size + 5) << columns[i].getColumnName();
+                }
+                cout << endl << endl;
                 int criterium_column_type = rows[0].getValueTypeByIndex(this->columnIndexByName(criterium_column));
                 if (criterium_column_type != 3)
                 {
@@ -1538,17 +1625,37 @@ public:
                             {
                                 if (stoi(criterium_value) == rows[i].getIntValueByIndex(this->columnIndexByName(criterium_column)))
                                 {
-                                    for (int j = 0; j < nr_of_columns; j++)
+                                    int width = 0;
+                                    switch (rows[i].getValueTypeByIndex(0)) {
+                                    case 1:
+                                        cout << rows[i].getIntValueByIndex(0);
+                                        width = (max_column_size + 5 - to_string(rows[i].getIntValueByIndex(0)).length());
+                                        break;
+                                    case 2:
+                                        cout << rows[i].getFloatValueByIndex(0);
+                                        width = (max_column_size + 5 - to_string(rows[i].getFloatValueByIndex(0)).length());
+                                        break;
+                                    case 3:
+                                        cout << rows[i].getTextValueByIndex(0);
+                                        width = (max_column_size + 5 - rows[i].getTextValueByIndex(0).length());
+                                        break;
+                                    }
+
+                                    for (int j = 1; j < nr_of_columns; j++)
                                     {
-                                        switch (this->rows[i].getValueTypeByIndex(j)) {
+                                        cout << setw(width);
+                                        switch (rows[i].getValueTypeByIndex(j)) {
                                         case 1:
-                                            cout << this->rows[i].getIntValueByIndex(j) << "   ";
+                                            cout << setw(width) << rows[i].getIntValueByIndex(j);
+                                            width = (max_column_size + 5 - to_string(rows[i].getIntValueByIndex(j)).length() + columns[j - 1].getColumnName().length());
                                             break;
                                         case 2:
-                                            cout << this->rows[i].getFloatValueByIndex(j) << "   ";
+                                            cout << setw(width) << rows[i].getFloatValueByIndex(j);
+                                            width = (max_column_size + 5 + to_string(rows[i].getFloatValueByIndex(j)).length() + columns[j - 1].getColumnName().length());
                                             break;
                                         case 3:
-                                            cout << this->rows[i].getTextValueByIndex(j) << "   ";
+                                            cout << setw(width) << rows[i].getTextValueByIndex(j);
+                                            width = (max_column_size + 5 + rows[i].getTextValueByIndex(j).length() + columns[j - 1].getColumnName().length());
                                             break;
                                         }
                                     }
@@ -1563,17 +1670,37 @@ public:
                             {
                                 if (stof(criterium_value) == rows[i].getFloatValueByIndex(this->columnIndexByName(criterium_column)))
                                 {
-                                    for (int j = 0; j < nr_of_columns; j++)
+                                    int width = 0;
+                                    switch (rows[i].getValueTypeByIndex(0)) {
+                                    case 1:
+                                        cout << rows[i].getIntValueByIndex(0);
+                                        width = (max_column_size + 5 - to_string(rows[i].getIntValueByIndex(0)).length());
+                                        break;
+                                    case 2:
+                                        cout << rows[i].getFloatValueByIndex(0);
+                                        width = (max_column_size + 5 - to_string(rows[i].getFloatValueByIndex(0)).length());
+                                        break;
+                                    case 3:
+                                        cout << rows[i].getTextValueByIndex(0);
+                                        width = (max_column_size + 5 - rows[i].getTextValueByIndex(0).length());
+                                        break;
+                                    }
+
+                                    for (int j = 1; j < nr_of_columns; j++)
                                     {
-                                        switch (this->rows[i].getValueTypeByIndex(j)) {
+                                        cout << setw(width);
+                                        switch (rows[i].getValueTypeByIndex(j)) {
                                         case 1:
-                                            cout << this->rows[i].getIntValueByIndex(j) << "   ";
+                                            cout << setw(width) << rows[i].getIntValueByIndex(j);
+                                            width = (max_column_size + 5 - to_string(rows[i].getIntValueByIndex(j)).length() + columns[j - 1].getColumnName().length());
                                             break;
                                         case 2:
-                                            cout << this->rows[i].getFloatValueByIndex(j) << "   ";
+                                            cout << setw(width) << rows[i].getFloatValueByIndex(j);
+                                            width = (max_column_size + 5 + to_string(rows[i].getFloatValueByIndex(j)).length() + columns[j - 1].getColumnName().length());
                                             break;
                                         case 3:
-                                            cout << this->rows[i].getTextValueByIndex(j) << "   ";
+                                            cout << setw(width) << rows[i].getTextValueByIndex(j);
+                                            width = (max_column_size + 5 + rows[i].getTextValueByIndex(j).length() + columns[j - 1].getColumnName().length());
                                             break;
                                         }
                                     }
@@ -1589,20 +1716,41 @@ public:
                     {
                         if (criterium_value == rows[i].getTextValueByIndex(this->columnIndexByName(criterium_column)))
                         {
-                            for (int j = 0; j < nr_of_columns; j++)
+                            int width = 0;
+                            switch (rows[i].getValueTypeByIndex(0)) {
+                            case 1:
+                                cout << rows[i].getIntValueByIndex(0);
+                                width = (max_column_size + 5 - to_string(rows[i].getIntValueByIndex(0)).length());
+                                break;
+                            case 2:
+                                cout << rows[i].getFloatValueByIndex(0);
+                                width = (max_column_size + 5 - to_string(rows[i].getFloatValueByIndex(0)).length());
+                                break;
+                            case 3:
+                                cout << rows[i].getTextValueByIndex(0);
+                                width = (max_column_size + 5 - rows[i].getTextValueByIndex(0).length());
+                                break;
+                            }
+
+                            for (int j = 1; j < nr_of_columns; j++)
                             {
-                                switch (this->rows[i].getValueTypeByIndex(j)) {
+                                cout << setw(width);
+                                switch (rows[i].getValueTypeByIndex(j)) {
                                 case 1:
-                                    cout << this->rows[i].getIntValueByIndex(j) << "   ";
+                                    cout << setw(width) << rows[i].getIntValueByIndex(j);
+                                    width = (max_column_size + 5 - to_string(rows[i].getIntValueByIndex(j)).length() + columns[j - 1].getColumnName().length());
                                     break;
                                 case 2:
-                                    cout << this->rows[i].getFloatValueByIndex(j) << "   ";
+                                    cout << setw(width) << rows[i].getFloatValueByIndex(j);
+                                    width = (max_column_size + 5 + to_string(rows[i].getFloatValueByIndex(j)).length() + columns[j - 1].getColumnName().length());
                                     break;
                                 case 3:
-                                    cout << this->rows[i].getTextValueByIndex(j) << "   ";
+                                    cout << setw(width) << rows[i].getTextValueByIndex(j);
+                                    width = (max_column_size + 5 + rows[i].getTextValueByIndex(j).length() + columns[j - 1].getColumnName().length());
                                     break;
                                 }
                             }
+                            cout << endl;
                         }
                     }
                     cout << endl;
@@ -1617,7 +1765,6 @@ public:
         regex floating("^((.)*[0-9]+(.)*[0-9]*)$");
         int criterium_column_type = rows[0].getValueTypeByIndex(this->columnIndexByName(criterium_column));
         int column_to_update_type = rows[0].getValueTypeByIndex(this->columnIndexByName(column_to_update));
-        cout << "a intrat in update\n";
         if (criterium_column_type != 3)
         {
             if (criterium_column_type == 1)
@@ -1723,10 +1870,10 @@ public:
         }
         else
         {
-        cout << "column type e 3 in update\n";
+        //cout << "column type e 3 in update\n";
             for (int i = 0; i < nr_of_rows; i++)
             {
-                cout << "a intrat in for\n";
+                //cout << "a intrat in for\n";
                 if (criterium_value == rows[i].getTextValueByIndex(this->columnIndexByName(criterium_column)))
                 {
                     if (column_to_update_type != 3)
@@ -1786,7 +1933,6 @@ public:
             cout << setw(max_column_size+5) << columns[i].getColumnName();
         }
         cout << endl << endl;
-        string element_before;
         for (int i = 0; i < nr_of_rows; i++)
         {
             int width = 0;
@@ -2151,14 +2297,14 @@ public:
         }
     }
 
-    void addColumnToTable(string table_name, string column_name, string column_type, string column_size, string default_type)
+    void addColumnToTable(int& error,string table_name, string column_name, string column_type, string column_size, string default_type)
     {
         //for(int i=0;i<nr_of_tables;i++)
         //{
 
             //if(tables[i].getTableName() == table_name)
            // {    
-        tables[this->findIndexOfTable(table_name)].addColumn(column_name, column_type, column_size, default_type);
+        tables[this->findIndexOfTable(table_name)].addColumn(error,column_name, column_type, column_size, default_type);
         //  break;
     //  }
  // }
@@ -2206,6 +2352,7 @@ public:
         }
         else
         {
+            int temp = nr_of_tables;
             for (int i = 0; i < nr_of_tables; i++)
             {
                 if (table_to_drop == tables[i].getTableName()) {
@@ -2237,8 +2384,10 @@ public:
                     delete[] tables_copy;
                     cout << "Table " << table_to_drop << " dropped\n";
                 }
-                else
-                    cout << "There is no such table" << endl;
+            }
+            if (temp == nr_of_tables)
+            {
+                cout << "No table with the name provided found, no tables dropped.\n";
             }
         }
     }
@@ -2325,7 +2474,7 @@ public:
             delete[] filenames;
         }
     }
-    void runCommands(Database& database)
+    void runCommands(Database& database, int& error)
     {
         ifstream file;
         for (int i = 1; i < nr_of_files; i++)
@@ -2335,83 +2484,216 @@ public:
             {
                 string comanda;
                 int valid = 0;
-                regex create_table("^(CREATE( )*TABLE( )*){1}([A-z]+[0-9]*){1}(( )*IF NOT EXISTS)*( )*((\\()((\\(){1}([A-z]+(,){1}( )*(TEXT)*(INTEGER)*(FLOAT)*(,){1}( )*[0-9]+(,){1}( )*([A-z]*[0-9]*(\\.)*[0-9]*)*)(\\)(,)*( )*){1})+(\\))){1}$");
-                regex drop_table("^(DROP TABLE){1}( )*([A-z]+[0-9]){1}$");
-                regex display_table("^(DISPLAY TABLE ){1}([A-z])+$");
-                regex insert_into("^(INSERT INTO){1}( )*([A-z])+( )*(VALUES){1}( )*(\\(){1}([A-z]*[0-9]*(\\.)*[0-9]*){1}((,)( )*[A-z]*[0-9]*(.)*[0-9]*)*(\\))$");
-                regex delete_from("^(DELETE FROM){1}( )*([A-z,0-9]+[^WHERE]){1}( )*(WHERE){1}( )*([A-z,0-9]+){1}( )*(=){1}( )*([A-z,0-9]+(\.)*[0-9]*){1}$");
-                regex update("^(UPDATE ){1}([A-z0-9]+[^ SET]){1}( SET ){1}([A-z,0-9]+){1}( )*(=){1}( )*([A-z,0-9]+[^ WHERE]){1}( WHERE ){1}([A-z,0-9]+)( )*(=){1}( )*([A-z,0-9]+){1}$");
+                regex create_table("^(CREATE TABLE ){1}([A-z0-9]+){1}( IF NOT EXISTS)*( ){1}((\\()((\\(){1}([A-z0-9]+(,){1}( ){1}(TEXT)*(INTEGER)*(FLOAT)*(,){1}( ){1}[0-9]+(,){1}( ){1}((\")*( )*[A-z0-9]*(\\.)*[0-9]*(\")*)*)(\\)(,)*( )*){1})+(\\))){1}$");
+                regex drop_table("^(DROP TABLE){1}( )*([A-z0-9]+){1}$");
+                regex display_table("^(DISPLAY TABLE ){1}([A-z0-9])+$");
+                regex insert_into("^(INSERT INTO){1}( ){1}([A-z0-9])+( ){1}(VALUES){1}( ){1}(\\(){1}((\")*[A-z]*[0-9]*(\\.)*[0-9]*(\")*){1}((,){1}( ){1}(\")*( )*[A-z]*[0-9]*(.)*[0-9]*(\")*)*(\\))$");
+                regex delete_from("^(DELETE FROM){1}( ){1}([A-z0-9]+[^WHERE]){1}( ){1}(WHERE){1}( ){1}([A-z0-9]+){1}( ){1}(=){1}( ){1}([A-z0-9]+(\.)*[0-9]*){1}$");
+                regex update("^(UPDATE ){1}([A-z0-9]+){1}( SET ){1}([A-z0-9]+){1}( ){1}(=){1}( ){1}((\")*[A-z0-9]+( )*(.)*(\")*){1}( WHERE ){1}([A-z0-9]+)( ){1}(=){1}( ){1}((\")*[A-z0-9]+( )*(.)*(\")*){1}$");
+                regex select("^(SELECT){1}( ){1}([A-z0-9]+){1}((,){1}( ){1}[A-z0-9]+)*( ){1}(FROM){1}( ){1}([A-z0-9]+){1}(( ){1}(WHERE){1}( ){1}([A-z0-9])+( ){1}(=){1}( ){1}([A-z0-9]+(\.)*[0-9]*){1})*$");
                 while (getline(file, comanda))
                 {
+                    if (regex_match(comanda, select))
+                    {
+                        valid = 1;
+                        int nr_of_columns = 1;
+                        size_t pos1 = 7;
+                        size_t pos2;
+                        for (int i = pos1; i < comanda.find(" FROM"); i++)
+                        {
+                            if (comanda[i] == ',')
+                                nr_of_columns++;
+                        }
+                        string* columns;
+                        columns = new string[nr_of_columns];
+                        for (int i = 0; i < nr_of_columns - 1; i++)
+                        {
+                            pos2 = comanda.find(",", pos1);
+                            columns[i] = comanda.substr(pos1, pos2 - pos1);
+                            pos1 = pos2 + 2;
+                        }
+                        pos2 = comanda.find(" FROM");
+                        columns[nr_of_columns - 1] = comanda.substr(pos1, pos2 - pos1);
+                        pos1 = pos2 + 6;
+                        pos2 = comanda.find(" WHERE");
+                        string table_name;
+                        string criterium_column;
+                        string criterium_value;
+                        if (pos2 != -1)
+                        {
+                            table_name = comanda.substr(pos1, pos2 - pos1);
+                            //cout << table_name << endl;
+                            pos1 = pos2 + 7;
+                            pos2 = comanda.find(" =", pos1);
+                            criterium_column = comanda.substr(pos1, pos2 - pos1);
+                            //cout << criterium_column << endl;
+                            pos1 = pos2 + 3;
+                            criterium_value = comanda.substr(pos1, comanda.length() - pos1);
+                            //cout << criterium_value << endl;
+                            if (database.findIndexOfTable(table_name) != -1)
+                            {
+                                if (database.getTable(table_name).columnIndexByName(criterium_column) != -1)
+                                {
+                                    if (nr_of_columns == 1 && columns[0] == "ALL")
+                                    {
+                                        database.getTable(table_name).select(1, columns, nr_of_columns, 1, criterium_column, criterium_value);
+                                    }
+                                    else
+                                    {
+                                        database.getTable(table_name).select(0, columns, nr_of_columns, 1, criterium_column, criterium_value);
+                                    }
+                                }
+                                else
+                                {
+                                    cout << "Column " << criterium_column << " doesn't exist, SELECT statement aborted.\n";
+                                }
+                            }
+                            else
+                            {
+                                cout << "Table " << table_name << " doesn't exist, aborting SELECT statement...\n";
+                            }
+                        }
+                        else
+                        {
+                            table_name = comanda.substr(pos1, comanda.length() - pos1);
+                            //cout << table_name << endl;
+                            if (database.findIndexOfTable(table_name) != -1)
+                            {
+                                if (nr_of_columns == 1 && columns[0] == "ALL")
+                                {
+                                    database.getTable(table_name).select(1, columns, nr_of_columns, 0, criterium_column, criterium_value);
+                                }
+                                else
+                                {
+                                    database.getTable(table_name).select(0, columns, nr_of_columns, 0, criterium_column, criterium_value);
+                                }
+                            }
+                            else
+                            {
+                                cout << "Table " << table_name << " doesn't exist, aborting select statement...\n";
+                            }
+                        }
+                    }
                     if (regex_match(comanda, create_table))
                     {
                         valid = 1;
                         regex ifnotexists("^(.)+(IF){1}( )*(NOT){1}( )*(EXISTS){1}(.)+$");
                         if (!(regex_match(comanda, ifnotexists)))
                         {
-                            comanda.erase(remove(comanda.begin(), comanda.end(), ' '), comanda.end());
-                            size_t pos1 = comanda.find("(");
+                            size_t pos1 = comanda.find(" (");
                             size_t pos2;
-                            string table_name = comanda.substr(11, pos1 - 11);
+                            string table_name = comanda.substr(13, pos1 - 13);
                             if (database.findIndexOfTable(table_name) != -1)
                             {
                                 cout << "A table with the name " << table_name << " already exists";
                             }
                             else
                             {
-                                pos1 += 2;
+                                pos1 += 3;
                                 database.createTable(table_name);
                                 while (pos1 < comanda.length())
                                 {
                                     pos2 = comanda.find(",", pos1);
                                     string column_name = comanda.substr(pos1, pos2 - pos1);
-                                    pos1 = pos2 + 1;
+                                    pos1 = pos2 + 2;
                                     pos2 = comanda.find(",", pos1);
                                     string column_type = comanda.substr(pos1, pos2 - pos1);
-                                    pos1 = pos2 + 1;
+                                    pos1 = pos2 + 2;
                                     pos2 = comanda.find(",", pos1);
                                     string column_size = comanda.substr(pos1, pos2 - pos1);
-                                    pos1 = pos2 + 1;
+                                    pos1 = pos2 + 2;
                                     pos2 = comanda.find(")", pos1);
-                                    string default_value = comanda.substr(pos1, pos2 - pos1);
-                                    pos1 = pos2 + 3;
-                                    database.addColumnToTable(table_name, column_name, column_type, column_size, default_value);
+                                    string default_value;
+                                    if (comanda[pos1] == '\"' || comanda[pos2 - 1] == '\"')
+                                    {
+                                        if (comanda[pos1] == '\"' && comanda[pos2 - 1] == '\"')
+                                        {
+                                            pos1 += 1;
+                                            pos2 -= 1;
+                                            default_value = comanda.substr(pos1, pos2 - pos1);
+                                            pos1 = pos2 + 5;
+                                        }
+                                        else
+                                        {
+                                            error = 1;
+                                            cout << "Bad formatting for create statement, aborting...\n";
+                                            break;
+                                        }
+                                    }
+                                    else
+                                    {
+                                        default_value = comanda.substr(pos1, pos2 - pos1);
+                                        pos1 = pos2 + 4;
+                                    }
+                                    //cout << default_value << endl;
+                                    database.addColumnToTable(error, table_name, column_name, column_type, column_size, default_value);
+                                    if (error)
+                                    {
+                                        database.dropTable(table_name);
+                                        break;
+                                    }
                                 }
-                                cout << "Table " << table_name << " created\n";
+                                if (!error)
+                                    cout << "Table " << table_name << " created\n";
                             }
                         }
                         else
                         {
-                            comanda.erase(remove(comanda.begin(), comanda.end(), ' '), comanda.end());
-                            size_t pos1 = comanda.find("(");
+                            size_t pos1 = comanda.find(" (");
                             size_t pos2;
-                            string table_name = comanda.substr(11, pos1 - 22);
+                            string table_name = comanda.substr(13, pos1 - 26);
                             if (database.findIndexOfTable(table_name) != -1)
                             {
                                 cout << "A table with the name " << table_name << " already exists";
                             }
                             else
                             {
-                                pos1 = comanda.find("(");
-                                pos1 += 2;
+                                pos1 = comanda.find("((");
+                                pos1 += 3;
                                 database.createTable(table_name);
                                 while (pos1 < comanda.length())
                                 {
                                     pos2 = comanda.find(",", pos1);
                                     string column_name = comanda.substr(pos1, pos2 - pos1);
-                                    pos1 = pos2 + 1;
+                                    pos1 = pos2 + 2;
                                     pos2 = comanda.find(",", pos1);
                                     string column_type = comanda.substr(pos1, pos2 - pos1);
-                                    pos1 = pos2 + 1;
+                                    pos1 = pos2 + 2;
                                     pos2 = comanda.find(",", pos1);
                                     string column_size = comanda.substr(pos1, pos2 - pos1);
-                                    pos1 = pos2 + 1;
+                                    pos1 = pos2 + 2;
                                     pos2 = comanda.find(")", pos1);
-                                    string default_value = comanda.substr(pos1, pos2 - pos1);
-                                    pos1 = pos2 + 3;
-                                    database.addColumnToTable(table_name, column_name, column_type, column_size, default_value);
+                                    string default_value;
+                                    if (comanda[pos1] == '\"' || comanda[pos2 - 1] == '\"')
+                                    {
+                                        if (comanda[pos1] == '\"' && comanda[pos2 - 1] == '\"')
+                                        {
+                                            pos1 += 1;
+                                            pos2 -= 1;
+                                            default_value = comanda.substr(pos1, pos2 - pos1);
+                                            pos1 = pos2 + 4;
+                                        }
+                                        else
+                                        {
+                                            error = 1;
+                                            cout << "Bad formatting for create statement, aborting...\n";
+                                            break;
+                                        }
+                                    }
+                                    else
+                                    {
+                                        default_value = comanda.substr(pos1, pos2 - pos1);
+                                        pos1 = pos2 + 4;
+                                    }
+                                    database.addColumnToTable(error, table_name, column_name, column_type, column_size, default_value);
+                                    if (error)
+                                    {
+                                        database.dropTable(table_name);
+                                        break;
+                                    }
                                 }
-                                cout << "Table " << table_name << " created\n";
+                                if (!error)
+                                    cout << "Table " << table_name << " created\n";
                             }
                         }
                     }
@@ -2427,7 +2709,9 @@ public:
                     if (regex_match(comanda, display_table))
                     {
                         valid = 1;
-                        cout << "DISPLAY TABLE is a work in progress";
+                        comanda.erase(remove(comanda.begin(), comanda.end(), ' '), comanda.end());
+                        string table_name = comanda.substr(12, comanda.length() - 12);
+                        database.getTable(table_name).display();
                     }
 
                     if (regex_match(comanda, insert_into))
@@ -2443,7 +2727,6 @@ public:
                         }
                         else
                         {
-                            comanda.erase(remove(comanda.begin(), comanda.end(), ' '), comanda.end());
                             pos1 = comanda.find("(") + 1;
                             int nr_of_values = 1;
                             for (int i = pos1; i < comanda.length(); i++)
@@ -2451,9 +2734,11 @@ public:
                                 if (comanda[i] == ',')
                                     nr_of_values++;
                             }
-                            if (database.getNrOfColumnsOfTable(table_name) != nr_of_values)
+                            //cout << "nr of values: " << nr_of_values << endl;
+                            if (database.getNrOfColumnsOfTable(table_name) < nr_of_values)
                             {
-                                cout << "The number of values typed for table " << table_name << " doesn't match the number of columns in that table\n";
+                                cout << "The number of values typed for table " << table_name << " is bigger than the number of columns in that table\n";
+                                error = 1;
                             }
                             else
                             {
@@ -2467,8 +2752,28 @@ public:
                                     {
                                         pos2 = comanda.find(')', pos1);
                                     }
-                                    value = comanda.substr(pos1, pos2 - pos1);
-                                    pos1 = pos2 + 1;
+                                    if (comanda[pos1] == '\"' || comanda[pos2 - 1] == '\"')
+                                    {
+                                        if (comanda[pos1] == '\"' && comanda[pos2 - 1] == '\"')
+                                        {
+                                            pos1 += 1;
+                                            pos2 -= 1;
+                                            value = comanda.substr(pos1, pos2 - pos1);
+                                            pos1 = pos2 + 4;
+                                        }
+                                        else
+                                        {
+                                            error = 1;
+                                            cout << "Bad formatting for insert statement, aborting...\n";
+                                            break;
+                                        }
+                                    }
+                                    else
+                                    {
+                                        value = comanda.substr(pos1, pos2 - pos1);
+                                        pos1 = pos2 + 2;
+                                    }
+                                    //cout << value << endl;
                                     if (database.getTable(table_name).getColumnTypeByIndex(column_nr) != 3)
                                     {
                                         int i = 0;
@@ -2479,13 +2784,24 @@ public:
                                             if (!(regex_match(value, integer)))
                                             {
                                                 cout << "ERROR: Column type for column " << database.getTable(table_name).getColumnNameByIndex(column_nr) << " in table " << table_name << "is INTEGER\n";
+                                                error = 1;
+                                                break;
                                             }
                                             else
                                             {
-                                                Content new_value(stoi(value));
-                                                database.getTable(table_name).addValueToRow(new_value, 1);
-
+                                                if (database.getTable(table_name).checkSizeForColumn(column_nr, value.length()))
+                                                {
+                                                    Content new_value(stoi(value));
+                                                    database.getTable(table_name).addValueToRow(new_value, 1);
+                                                }
+                                                else
+                                                {
+                                                    cout << "Value " << value << " too big for column " << database.getTable(table_name).getColumnNameByIndex(column_nr) << endl;
+                                                    error = 1;
+                                                    break;
+                                                }
                                             }
+
                                         }
 
                                         if (database.getTable(table_name).getColumnTypeByIndex(column_nr) == 2)
@@ -2493,58 +2809,156 @@ public:
                                             regex floating("^((.)*[0-9]+(.)*[0-9]*)$");
                                             if (!(regex_match(value, floating)))
                                             {
-                                                cout << "ERROR: Column type for column " << database.getTable(table_name).getColumnNameByIndex(column_nr) << " in table " << table_name << " is FLOAT\n";
+                                                cout << "ERROR: Column type for column " << database.getTable(table_name).getColumnNameByIndex(column_nr) << " in table " << table_name << "is FLOAT\n";
+                                                error = 1;
+                                                break;
                                             }
                                             else
                                             {
-                                                Content new_value(stof(value));
-                                                database.getTable(table_name).addValueToRow(new_value, 2);
+                                                if (database.getTable(table_name).checkSizeForColumn(column_nr, value.length()))
+                                                {
+                                                    Content new_value(stof(value));
+                                                    database.getTable(table_name).addValueToRow(new_value, 2);
+                                                }
+                                                else
+                                                {
+                                                    cout << "Value " << value << " too big for column " << database.getTable(table_name).getColumnNameByIndex(column_nr) << endl;
+                                                    error = 1;
+                                                    break;
+                                                }
                                             }
                                         }
                                     }
                                     else
                                     {
-                                        Content new_value(value);
-                                        database.getTable(table_name).addValueToRow(new_value, 3);
-
+                                        if (database.getTable(table_name).checkSizeForColumn(column_nr, value.length()))
+                                        {
+                                            Content new_value(value);
+                                            database.getTable(table_name).addValueToRow(new_value, 3);
+                                        }
+                                        else
+                                        {
+                                            cout << "Value " << value << " too big for column " << database.getTable(table_name).getColumnNameByIndex(column_nr) << endl;
+                                            error = 1;
+                                            break;
+                                        }
                                     }
                                     column_nr++;
                                 }
                             }
-                            cout << "Row added to table " << table_name << "\n";
+                            if (!error)
+                                cout << "Row added to table " << table_name << "\n";
+                            else
+                            {
+                                database.getTable(table_name).deleteRowByIndex(database.getTable(table_name).getNrOfRows() - 1);
+                            }
                         }
                     }
                     if (regex_match(comanda, delete_from))
                     {
                         valid = 1;
-                        comanda.erase(remove(comanda.begin(), comanda.end(), ' '), comanda.end());
-                        size_t pos1 = comanda.find("WHERE");
+                        size_t pos1 = comanda.find(" WHERE");
                         size_t pos2;
-                        string table_name = comanda.substr(10, pos1 - 10);
+                        string table_name = comanda.substr(12, pos1 - 12);
                         if (database.findIndexOfTable(table_name) == -1)
                         {
                             cout << "There is no table named " << table_name << " in the database\n";
                         }
                         else
                         {
-                            pos1 += 5;
-                            pos2 = comanda.find('=', pos1);
-                            string column = comanda.substr(pos1, pos2 - pos1);
+                            pos1 += 7;
+                            pos2 = comanda.find(' =', pos1);
+                            string column = comanda.substr(pos1, pos2 - pos1 - 1);
                             if (database.getTable(table_name).columnIndexByName(column) == -1)
                             {
                                 cout << "There is no column named " << column << " in table " << table_name << endl;
                             }
                             else
                             {
-                                string column_value = comanda.substr(pos2 + 1, comanda.length() - pos1);
+                                string column_value = comanda.substr(pos2 + 2, comanda.length() - (pos2 + 2));
+                                //cout << column_value << endl;
                                 database.getTable(table_name).deleteFrom(column, column_value);
                             }
                         }
                     }
-                    if (valid == 0)
+                    if (regex_match(comanda, update))
+                    {
+                        valid = 1;
+                        size_t pos1 = comanda.find(" SET");
+                        size_t pos2;
+                        string table_name = comanda.substr(7, pos1 - 7);
+                        if (database.findIndexOfTable(table_name) == -1)
+                        {
+                            cout << "There is no table named " << table_name << " in the database\n";
+                        }
+                        else
+                        {
+                            pos2 = pos1 + 5;
+                            pos1 = comanda.find(" =", pos2);
+                            string column_to_update = comanda.substr(pos2, pos1 - pos2);
+                            pos2 = pos1 + 3;
+                            pos1 = comanda.find(" WHERE", pos2);
+                            string updated_value;
+                            if (comanda[pos1 - 1] == '\"' || comanda[pos2] == '\"')
+                            {
+                                if (comanda[pos1 - 1] == '\"' && comanda[pos2] == '\"')
+                                {
+                                    updated_value = comanda.substr(pos2 + 1, pos1 - 2 - pos2);
+                                }
+                                else
+                                {
+                                    cout << "Formatting error, aborting...\n";
+                                    error = 1;
+                                }
+                            }
+                            else
+                            {
+                                updated_value = comanda.substr(pos2, pos1 - pos2);
+                            }
+                            pos2 = pos1 + 7;
+                            pos1 = comanda.find(" =", pos2);
+                            string criterium_column = comanda.substr(pos2, pos1 - pos2);
+                            pos1 += 4;
+                            pos2 = comanda.find('\"', pos1);
+                            string criterium_value;
+                            if (pos2 != -1)
+                            {
+                                if (comanda[pos1 - 1] == '\"')
+                                {
+                                    criterium_value = comanda.substr(pos1, pos2 - pos1);
+                                }
+                            }
+                            else
+                            {
+                                pos1--;
+                                criterium_value = comanda.substr(pos1, comanda.length() - pos1);
+                            }
+                            if (database.getTable(table_name).columnIndexByName(criterium_column) != -1)
+                            {
+                                if (database.getTable(table_name).columnIndexByName(column_to_update) != -1)
+                                {
+                                    if (!error)
+                                        database.getTable(table_name).update(column_to_update, updated_value, criterium_column, criterium_value);
+                                }
+                                else
+                                {
+                                    cout << "Column " << column_to_update << " doesn't exist, update statement aborted.\n";
+                                }
+                            }
+                            else
+                            {
+                                cout << "Column " << criterium_column << " doesn't exist, update statement aborted.\n";
+                            }
+                        }
+                    }
+                    if (valid == 0 || error == 1)
                     {
                         cout << "Error while reading commands from argument file " << filenames[i] << ": commands not recognized, aborting...\n";
                         break;
+                    }
+                    else
+                    {
+                        error = 0;
                     }
                 }
                 file.close();

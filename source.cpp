@@ -7,6 +7,7 @@
 using namespace std;
 
 Database database;
+int error = 0;
 
 int main(int argc, char** argv)
 {
@@ -127,7 +128,7 @@ int main(int argc, char** argv)
     {
         Input input(argc, argv);
         cout << "Running commands from input files...\n";
-        input.runCommands(database);
+        input.runCommands(database, error);
     }
     else
     {
@@ -135,15 +136,15 @@ int main(int argc, char** argv)
     }
     cout << "---The actual program---" << endl;
     string comanda;
-    regex create_table("^(CREATE( )*TABLE( )*){1}([A-z]+[0-9]*){1}(( )*IF NOT EXISTS)*( )*((\\()((\\(){1}([A-z]+(,){1}( )*(TEXT)*(INTEGER)*(FLOAT)*(,){1}( )*[0-9]+(,){1}( )*([A-z]*[0-9]*(\\.)*[0-9]*)*)(\\)(,)*( )*){1})+(\\))){1}$");
-    regex drop_table("^(DROP TABLE){1}( )*([A-z]+[0-9]){1}$");
-    regex display_table("^(DISPLAY TABLE ){1}([A-z])+$");
-    regex insert_into("^(INSERT INTO){1}( )*([A-z0-9])+( )*(VALUES){1}( )*(\\(){1}([A-z]*[0-9]*(\\.)*[0-9]*){1}((,)*( )*[A-z]*[0-9]*(.)*[0-9]*)*(\\))$");
-    regex delete_from("^(DELETE FROM){1}( )*([A-z0-9]+[^WHERE]){1}( )*(WHERE){1}( )*([A-z0-9]+){1}( )*(=){1}( )*([A-z0-9]+(\.)*[0-9]*){1}$");
-    regex update("^(UPDATE ){1}([A-z0-9]+){1}( SET ){1}([A-z0-9]+){1}( )*(=){1}( )*([A-z0-9]+){1}( WHERE ){1}([A-z0-9]+)( )*(=){1}( )*([A-z0-9]+){1}$");
+    regex create_table("^(CREATE TABLE ){1}([A-z0-9]+){1}( IF NOT EXISTS)*( ){1}((\\()((\\(){1}([A-z0-9]+(,){1}( ){1}(TEXT)*(INTEGER)*(FLOAT)*(,){1}( ){1}[0-9]+(,){1}( ){1}((\")*( )*[A-z0-9]*(\\.)*[0-9]*(\")*)*)(\\)(,)*( )*){1})+(\\))){1}$");
+    regex drop_table("^(DROP TABLE){1}( )*([A-z0-9]+){1}$");
+    regex display_table("^(DISPLAY TABLE ){1}([A-z0-9])+$");
+    regex insert_into("^(INSERT INTO){1}( ){1}([A-z0-9])+( ){1}(VALUES){1}( ){1}(\\(){1}((\")*[A-z]*[0-9]*(\\.)*[0-9]*(\")*){1}((,){1}( ){1}(\")*( )*[A-z]*[0-9]*(.)*[0-9]*(\")*)*(\\))$");
+    regex delete_from("^(DELETE FROM){1}( ){1}([A-z0-9]+[^WHERE]){1}( ){1}(WHERE){1}( ){1}([A-z0-9]+){1}( ){1}(=){1}( ){1}([A-z0-9]+(\.)*[0-9]*){1}$");
+    regex update("^(UPDATE ){1}([A-z0-9]+){1}( SET ){1}([A-z0-9]+){1}( ){1}(=){1}( ){1}((\")*[A-z0-9]+( )*(.)*(\")*){1}( WHERE ){1}([A-z0-9]+)( ){1}(=){1}( ){1}((\")*[A-z0-9]+( )*(.)*(\")*){1}$");
     regex select("^(SELECT){1}( ){1}([A-z0-9]+){1}((,){1}( ){1}[A-z0-9]+)*( ){1}(FROM){1}( ){1}([A-z0-9]+){1}(( ){1}(WHERE){1}( ){1}([A-z0-9])+( ){1}(=){1}( ){1}([A-z0-9]+(\.)*[0-9]*){1})*$");
     cout << "To exit this cheap database manager type \"exit\"\n";
-    cout << "Accepted commands (examples):\nCREATE TABLE test ((a, TEXT, 3, a), (b, INTEGER, 3, 0), (c, FLOAT, 3, 9.2), (...))\nINSERT INTO test VALUES (xz, 12, 1.3, ...)\nDELETE FROM test WHERE a = xz\nDROP TABLE test\n";
+    cout << "Accepted commands (examples):\nCREATE TABLE test ((a, TEXT, 3, a), (b, INTEGER, 3, 0), (c, FLOAT, 3, 9.2), (...))\nINSERT INTO test VALUES (xz, 12, 1.3, ...)\nDELETE FROM test WHERE a = xz\nDROP TABLE test\nUPDATE test SET a = \"value\" WHERE b = 0.7\nDISPLAY TABLE test\nSELECT column1, column2 FROM test WHERE c = \"something\"\n";
     cout << ">> ";
     getline(cin, comanda, '\n');
     while (comanda != "exit")
@@ -166,12 +167,10 @@ int main(int argc, char** argv)
             {
                 pos2 = comanda.find(",", pos1);
                 columns[i] = comanda.substr(pos1, pos2 - pos1);
-                cout << columns[i] << endl;
                 pos1 = pos2 + 2;
             }
             pos2 = comanda.find(" FROM");
             columns[nr_of_columns - 1] = comanda.substr(pos1, pos2-pos1);
-            cout << columns[nr_of_columns - 1] << endl;
             pos1 = pos2 + 6;
             pos2 = comanda.find(" WHERE");
             string table_name;
@@ -188,33 +187,47 @@ int main(int argc, char** argv)
                 pos1 = pos2 + 3;
                 criterium_value = comanda.substr(pos1, comanda.length() - pos1);
                 //cout << criterium_value << endl;
-                if (database.getTable(table_name).columnIndexByName(criterium_column) != -1)
+                if (database.findIndexOfTable(table_name) != -1)
                 {
-                    if (nr_of_columns == 1 && columns[0] == "ALL")
+                    if (database.getTable(table_name).columnIndexByName(criterium_column) != -1)
                     {
-                        database.getTable(table_name).select(1, columns,nr_of_columns,1, criterium_column, criterium_value);
+                        if (nr_of_columns == 1 && columns[0] == "ALL")
+                        {
+                            database.getTable(table_name).select(1, columns, nr_of_columns, 1, criterium_column, criterium_value);
+                        }
+                        else
+                        {
+                            database.getTable(table_name).select(0, columns, nr_of_columns, 1, criterium_column, criterium_value);
+                        }
                     }
                     else
                     {
-                        database.getTable(table_name).select(0, columns, nr_of_columns, 1, criterium_column, criterium_value);
+                        cout << "Column " << criterium_column << " doesn't exist, SELECT statement aborted.\n";
                     }
                 }
                 else
                 {
-                    cout << "Column " << criterium_column << " doesn't exist, update statement aborted.\n";
+                    cout << "Table " << table_name << " doesn't exist, aborting SELECT statement...\n";
                 }
             }
             else
             {
                 table_name = comanda.substr(pos1, comanda.length() - pos1);
                 //cout << table_name << endl;
-                if (nr_of_columns == 1 && columns[0] == "ALL")
+                if (database.findIndexOfTable(table_name) != -1)
                 {
-                    database.getTable(table_name).select(1, columns, nr_of_columns, 0, criterium_column, criterium_value);
+                    if (nr_of_columns == 1 && columns[0] == "ALL")
+                    {
+                        database.getTable(table_name).select(1, columns, nr_of_columns, 0, criterium_column, criterium_value);
+                    }
+                    else
+                    {
+                        database.getTable(table_name).select(0, columns, nr_of_columns, 0, criterium_column, criterium_value);
+                    }
                 }
-                else
+                else 
                 {
-                    database.getTable(table_name).select(0, columns, nr_of_columns, 0, criterium_column, criterium_value);
+                    cout << "Table " << table_name << " doesn't exist, aborting select statement...\n";
                 }
             }
         }
@@ -224,69 +237,120 @@ int main(int argc, char** argv)
             regex ifnotexists("^(.)+(IF){1}( )*(NOT){1}( )*(EXISTS){1}(.)+$");
             if (!(regex_match(comanda, ifnotexists)))
             {
-                comanda.erase(remove(comanda.begin(), comanda.end(), ' '), comanda.end());
-                size_t pos1 = comanda.find("(");
+                size_t pos1 = comanda.find(" (");
                 size_t pos2;
-                string table_name = comanda.substr(11, pos1 - 11);
+                string table_name = comanda.substr(13, pos1 - 13);
                 if (database.findIndexOfTable(table_name) != -1)
                 {
                     cout << "A table with the name " << table_name << " already exists";
                 }
                 else
                 {
-                    pos1 += 2;
+                    pos1 += 3;
                     database.createTable(table_name);
                     while (pos1 < comanda.length())
                     {
                         pos2 = comanda.find(",", pos1);
                         string column_name = comanda.substr(pos1, pos2 - pos1);
-                        pos1 = pos2 + 1;
+                        pos1 = pos2 + 2;
                         pos2 = comanda.find(",", pos1);
                         string column_type = comanda.substr(pos1, pos2 - pos1);
-                        pos1 = pos2 + 1;
+                        pos1 = pos2 + 2;
                         pos2 = comanda.find(",", pos1);
                         string column_size = comanda.substr(pos1, pos2 - pos1);
-                        pos1 = pos2 + 1;
+                        pos1 = pos2 + 2;
                         pos2 = comanda.find(")", pos1);
-                        string default_value = comanda.substr(pos1, pos2 - pos1);
-                        pos1 = pos2 + 3;
-                        database.addColumnToTable(table_name, column_name, column_type, column_size, default_value);
+                        string default_value;
+                        if (comanda[pos1] == '\"' || comanda[pos2-1] == '\"')
+                        {
+                            if (comanda[pos1] == '\"' && comanda[pos2 - 1] == '\"')
+                            {
+                                pos1 += 1;
+                                pos2 -= 1;
+                                default_value = comanda.substr(pos1, pos2 - pos1);
+                                pos1 = pos2 + 5;
+                            }
+                            else
+                            {
+                                error = 1;
+                                cout << "Bad formatting for create statement, aborting...\n";
+                                break;
+                            }
+                        }
+                        else
+                        {
+                        default_value = comanda.substr(pos1, pos2 - pos1);
+                        pos1 = pos2 + 4;
+                        }
+                        //cout << default_value << endl;
+                        database.addColumnToTable(error,table_name, column_name, column_type, column_size, default_value);
+                        if (error)
+                        {
+                            database.dropTable(table_name);
+                            break;
+                        }
                     }
+                    if(!error)
                     cout << "Table " << table_name << " created\n";
                 }
             }
             else
             {
-                comanda.erase(remove(comanda.begin(), comanda.end(), ' '), comanda.end());
-                size_t pos1 = comanda.find("(");
+                size_t pos1 = comanda.find(" (");
                 size_t pos2;
-                string table_name = comanda.substr(11, pos1 - 22);
+                string table_name = comanda.substr(13, pos1 - 26);
                 if (database.findIndexOfTable(table_name) != -1)
                 {
                     cout << "A table with the name " << table_name << " already exists";
                 }
                 else
                 {
-                    pos1 = comanda.find("(");
-                    pos1 += 2;
+                    pos1 = comanda.find("((");
+                    pos1 += 3;
                     database.createTable(table_name);
                     while (pos1 < comanda.length())
                     {
                         pos2 = comanda.find(",", pos1);
                         string column_name = comanda.substr(pos1, pos2 - pos1);
-                        pos1 = pos2 + 1;
+                        pos1 = pos2 + 2;
                         pos2 = comanda.find(",", pos1);
                         string column_type = comanda.substr(pos1, pos2 - pos1);
-                        pos1 = pos2 + 1;
+                        pos1 = pos2 + 2;
                         pos2 = comanda.find(",", pos1);
                         string column_size = comanda.substr(pos1, pos2 - pos1);
-                        pos1 = pos2 + 1;
+                        pos1 = pos2 + 2;
                         pos2 = comanda.find(")", pos1);
-                        string default_value = comanda.substr(pos1, pos2 - pos1);
-                        pos1 = pos2 + 3;
-                        database.addColumnToTable(table_name, column_name, column_type, column_size, default_value);
+                        string default_value;
+                        if (comanda[pos1] == '\"' || comanda[pos2 - 1] == '\"')
+                        {
+                            if (comanda[pos1] == '\"' && comanda[pos2 - 1] == '\"')
+                            {
+                                pos1 += 1;
+                                pos2 -= 1;
+                                default_value = comanda.substr(pos1, pos2 - pos1);
+                                pos1 = pos2 + 4;
+                            }
+                            else
+                            {
+                                error = 1;
+                                cout << "Bad formatting for create statement, aborting...\n";
+                                break;
+                            }
+                        }
+                        else
+                        {
+                            default_value = comanda.substr(pos1, pos2 - pos1);
+                            pos1 = pos2 + 4;
+                        }
+                        database.addColumnToTable(error, table_name, column_name, column_type, column_size, default_value);
+                        if (error)
+                        {
+                            database.dropTable(table_name);
+                            break;
+                        }
                     }
-                    cout << "Table " << table_name << " created\n";
+                    if (!error)
+                        cout << "Table " << table_name << " created\n";
                 }
             }
         }
@@ -320,7 +384,6 @@ int main(int argc, char** argv)
             }
             else
             {
-                comanda.erase(remove(comanda.begin(), comanda.end(), ' '), comanda.end());
                 pos1 = comanda.find("(") + 1;
                 int nr_of_values = 1;
                 for (int i = pos1; i < comanda.length(); i++)
@@ -328,9 +391,11 @@ int main(int argc, char** argv)
                     if (comanda[i] == ',')
                         nr_of_values++;
                 }
-                if (database.getNrOfColumnsOfTable(table_name) > nr_of_values)
+                //cout << "nr of values: " << nr_of_values << endl;
+                if (database.getNrOfColumnsOfTable(table_name) < nr_of_values)
                 {
                     cout << "The number of values typed for table " << table_name << " is bigger than the number of columns in that table\n";
+                    error = 1;
                 }
                 else
                 {
@@ -344,8 +409,28 @@ int main(int argc, char** argv)
                         {
                             pos2 = comanda.find(')', pos1);
                         }
-                        value = comanda.substr(pos1, pos2 - pos1);
-                        pos1 = pos2 + 1;
+                        if (comanda[pos1] == '\"' || comanda[pos2 - 1] == '\"')
+                        {
+                            if (comanda[pos1] == '\"' && comanda[pos2 - 1] == '\"')
+                            {
+                                pos1 += 1;
+                                pos2 -= 1;
+                                value = comanda.substr(pos1, pos2 - pos1);
+                                pos1 = pos2 + 4;
+                            }
+                            else
+                            {
+                                error = 1;
+                                cout << "Bad formatting for insert statement, aborting...\n";
+                                break;
+                            }
+                        }
+                        else
+                        {
+                            value = comanda.substr(pos1, pos2 - pos1);
+                            pos1 = pos2 + 2;
+                        }
+                        //cout << value << endl;
                         if (database.getTable(table_name).getColumnTypeByIndex(column_nr) != 3)
                         {
                             int i = 0;
@@ -356,13 +441,24 @@ int main(int argc, char** argv)
                                 if (!(regex_match(value, integer)))
                                 {
                                     cout << "ERROR: Column type for column " << database.getTable(table_name).getColumnNameByIndex(column_nr) << " in table " << table_name << "is INTEGER\n";
+                                    error = 1;
+                                    break;
                                 }
                                 else
                                 {
-                                    Content new_value(stoi(value));
-                                    database.getTable(table_name).addValueToRow(new_value, 1);
-
+                                    if (database.getTable(table_name).checkSizeForColumn(column_nr, value.length()))
+                                    {
+                                        Content new_value(stoi(value));
+                                        database.getTable(table_name).addValueToRow(new_value, 1);
+                                    }
+                                    else
+                                    {
+                                        cout << "Value " << value << " too big for column " << database.getTable(table_name).getColumnNameByIndex(column_nr) << endl;
+                                        error = 1;
+                                        break;
+                                    }
                                 }
+
                             }
 
                             if (database.getTable(table_name).getColumnTypeByIndex(column_nr) == 2)
@@ -370,50 +466,74 @@ int main(int argc, char** argv)
                                 regex floating("^((.)*[0-9]+(.)*[0-9]*)$");
                                 if (!(regex_match(value, floating)))
                                 {
-                                    cout << "ERROR: Column type for column " << database.getTable(table_name).getColumnNameByIndex(column_nr) << " in table " << table_name << " is FLOAT\n";
+                                    cout << "ERROR: Column type for column " << database.getTable(table_name).getColumnNameByIndex(column_nr) << " in table " << table_name << "is FLOAT\n";
+                                    error = 1;
+                                    break;
                                 }
                                 else
                                 {
-                                    Content new_value(stof(value));
-                                    database.getTable(table_name).addValueToRow(new_value, 2);
+                                    if (database.getTable(table_name).checkSizeForColumn(column_nr, value.length()))
+                                    {
+                                        Content new_value(stof(value));
+                                        database.getTable(table_name).addValueToRow(new_value, 2);
+                                    }
+                                    else
+                                    {
+                                        cout << "Value " << value << " too big for column " << database.getTable(table_name).getColumnNameByIndex(column_nr) << endl;
+                                        error = 1;
+                                        break;
+                                    }
                                 }
                             }
                         }
                         else
                         {
-                            Content new_value(value);
-                            database.getTable(table_name).addValueToRow(new_value, 3);
-
+                            if (database.getTable(table_name).checkSizeForColumn(column_nr, value.length()))
+                            {
+                                Content new_value(value);
+                                database.getTable(table_name).addValueToRow(new_value, 3);
+                            }
+                            else
+                            {
+                                cout << "Value " << value << " too big for column " << database.getTable(table_name).getColumnNameByIndex(column_nr) << endl;
+                                error = 1;
+                                break;
+                            }
                         }
                         column_nr++;
                     }
                 }
-                cout << "Row added to table " << table_name << "\n";
+                if (!error)
+                    cout << "Row added to table " << table_name << "\n";
+                else
+                {
+                    database.getTable(table_name).deleteRowByIndex(database.getTable(table_name).getNrOfRows() - 1);
+                }
             }
         }
         if (regex_match(comanda, delete_from))
         {
             valid = 1;
-            comanda.erase(remove(comanda.begin(), comanda.end(), ' '), comanda.end());
-            size_t pos1 = comanda.find("WHERE");
+            size_t pos1 = comanda.find(" WHERE");
             size_t pos2;
-            string table_name = comanda.substr(10, pos1 - 10);
+            string table_name = comanda.substr(12, pos1 - 12);
             if (database.findIndexOfTable(table_name) == -1)
             {
                 cout << "There is no table named " << table_name << " in the database\n";
             }
             else
             {
-                pos1 += 5;
-                pos2 = comanda.find('=', pos1);
-                string column = comanda.substr(pos1, pos2 - pos1);
+                pos1 += 7;
+                pos2 = comanda.find(' =', pos1);
+                string column = comanda.substr(pos1, pos2 - pos1-1);
                 if (database.getTable(table_name).columnIndexByName(column) == -1)
                 {
                     cout << "There is no column named " << column << " in table " << table_name << endl;
                 }
                 else
                 {
-                    string column_value = comanda.substr(pos2 + 1, comanda.length() - pos1);
+                    string column_value = comanda.substr(pos2 + 2, comanda.length() - (pos2+2));
+                    cout << column_value << endl;
                     database.getTable(table_name).deleteFrom(column, column_value);
                 }
             }
@@ -421,31 +541,60 @@ int main(int argc, char** argv)
         if (regex_match(comanda, update))
         {
             valid = 1;
-            comanda.erase(remove(comanda.begin(), comanda.end(), ' '), comanda.end());
-            size_t pos1 = comanda.find("SET");
+            size_t pos1 = comanda.find(" SET");
             size_t pos2;
-            string table_name = comanda.substr(6, pos1 - 6);
+            string table_name = comanda.substr(7, pos1 - 7);
             if (database.findIndexOfTable(table_name) == -1)
             {
                 cout << "There is no table named " << table_name << " in the database\n";
             }
             else
             {
-                pos2 = pos1 + 3;
-                pos1 = comanda.find("=", pos2);
-                string column_to_update = comanda.substr(pos2, pos1 - pos2);
-                pos2 = pos1 + 1;
-                pos1 = comanda.find("WHERE", pos2);
-                string updated_value = comanda.substr(pos2, pos1 - pos2);
                 pos2 = pos1 + 5;
-                pos1 = comanda.find("=", pos2);
+                pos1 = comanda.find(" =", pos2);
+                string column_to_update = comanda.substr(pos2, pos1 - pos2);
+                pos2 = pos1 + 3;
+                pos1 = comanda.find(" WHERE", pos2);
+                string updated_value;
+                if (comanda[pos1-1] == '\"' || comanda[pos2] == '\"')
+                {
+                    if (comanda[pos1 - 1] == '\"' && comanda[pos2] == '\"')
+                    {
+                        updated_value = comanda.substr(pos2+1, pos1-2 - pos2);
+                    }
+                    else
+                    {
+                        cout << "Formatting error, aborting...\n";
+                        error = 1;
+                    }
+                }
+                else 
+                {
+                    updated_value = comanda.substr(pos2, pos1 - pos2);
+                }
+                pos2 = pos1 + 7;
+                pos1 = comanda.find(" =", pos2);
                 string criterium_column = comanda.substr(pos2, pos1 - pos2);
-                pos1 += 1;
-                string criterium_value = comanda.substr(pos1, comanda.length() - pos1);
+                pos1 += 4;
+                pos2 = comanda.find('\"', pos1);
+                string criterium_value;
+                if (pos2 != -1)
+                {                  
+                    if (comanda[pos1-1] == '\"')
+                    {
+                        criterium_value = comanda.substr(pos1, pos2 - pos1);
+                    }
+                }
+                else 
+                {
+                    pos1--;
+                    criterium_value = comanda.substr(pos1, comanda.length() - pos1);
+                }
                 if (database.getTable(table_name).columnIndexByName(criterium_column) != -1)
                 {
                     if (database.getTable(table_name).columnIndexByName(column_to_update) != -1)
                     {
+                        if(!error)
                         database.getTable(table_name).update(column_to_update, updated_value, criterium_column, criterium_value);
                     }
                     else
@@ -463,6 +612,7 @@ int main(int argc, char** argv)
         {
             cout << "Command not recognized, try again or type \"exit\"\n";
         }
+        error = 0;
         cout << ">> ";
         getline(cin, comanda, '\n');
     }
